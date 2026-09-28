@@ -1,8 +1,33 @@
 // CPU Scheduling Visualizer - Main Application
 // Pure vanilla JS + Tailwind CSS (ES Module)
-// Reference implementation with smooth animations, step playback, comparison charts, and academic presets.
+// Clean professional UI with SVG icons, in-place updates, and zero page shaking.
 
 import { runScheduler, validateProcesses } from './scheduler.js';
+
+// Professional SVG Vector Icons (Heroicons / Lucide design)
+const ICONS = {
+  cpu: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M3 9h2m-2 6h2m14-6h2m-2 6h2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>`,
+  sparkles: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>`,
+  clock: `<svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  playCircle: `<svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  chartBar: `<svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`,
+  trophy: `<svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3h14a2 2 0 012 2v2a4 4 0 01-4 4h-.5a6.002 6.002 0 01-5.5 4.5V18h3a1 1 0 011 1v2H9v-2a1 1 0 011-1h3v-2.5A6.002 6.002 0 017.5 11H7a4 4 0 01-4-4V5a2 2 0 012-2zm0 2v2a2 2 0 002 2h.5V5H5zm14 0h-2.5v4H17a2 2 0 002-2V5z" /></svg>`,
+  check: `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>`,
+  arrowRight: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>`,
+  arrowLeft: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>`,
+  sun: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`,
+  moon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>`,
+  play: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>`,
+  pause: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>`,
+  stepForward: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>`,
+  stepBack: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>`,
+  refresh: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>`,
+  trash: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>`,
+  plus: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>`,
+  alert: `<svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`,
+  academic: `<svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" /></svg>`,
+  edit: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>`,
+};
 
 const ALGORITHMS = {
   fcfs: {
@@ -101,7 +126,6 @@ const state = {
   comparisonAlgos: ['fcfs', 'sjf', 'rr', 'priority', 'srtf', 'ljf'],
   comparisonQuantums: { rr: 2 },
   validationErrors: [],
-  newlyAddedId: null,
   darkMode: localStorage.getItem('cpuDarkMode') === 'true',
   playback: {
     currentTime: 0,
@@ -169,11 +193,11 @@ function renderGantt(gantt, options = {}) {
 
     return `
       <div data-start="${seg.start}" data-end="${seg.end}"
-           class="gantt-bar group absolute top-0 bottom-0 flex flex-col justify-center items-center ${isCurrent ? 'ring-2 ring-amber-400 z-10 scale-[1.02]' : ''}"
+           class="gantt-bar group absolute top-0 bottom-0 flex flex-col justify-center items-center ${isCurrent ? 'ring-2 ring-amber-400 z-10' : ''}"
            style="left: ${pctStart}%; width: ${pctWidth}%; background-color: ${color}; ${isIdle ? 'background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0 6px, transparent 6px 12px);' : ''}">
         
         <!-- Tooltip -->
-        <div class="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[11px] font-mono px-2 py-0.5 rounded shadow pointer-events-none z-30 whitespace-nowrap">
+        <div class="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[11px] font-mono px-2 py-0.5 rounded shadow pointer-events-none z-30 whitespace-nowrap">
           ${isIdle ? 'CPU IDLE' : escapeHtml(seg.id)}: [${seg.start} → ${seg.end}] (${dur}u)
         </div>
 
@@ -233,7 +257,7 @@ function headerView() {
     const isCompleted = idx < currentIdx;
     return `
       <button onclick="app.goTo('${s.id}')"
-        class="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        class="btn-action flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium ${
           isActive
             ? 'bg-indigo-600 text-white shadow-sm font-semibold'
             : isCompleted
@@ -247,7 +271,7 @@ function headerView() {
             ? 'bg-emerald-600 text-white font-bold'
             : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
         }">
-          ${isCompleted ? '✓' : idx}
+          ${isCompleted ? ICONS.check : idx}
         </span>
         <span class="hidden md:inline">${escapeHtml(s.label)}</span>
       </button>
@@ -255,11 +279,11 @@ function headerView() {
   }).join('');
 
   return `
-    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm">
+    <header class="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm">
       <div class="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-indigo-500/20">
-            CPU
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+            ${ICONS.cpu}
           </div>
           <div>
             <h1 class="text-sm font-bold leading-tight text-slate-900 dark:text-white">CPU Scheduling Visualizer</h1>
@@ -272,9 +296,9 @@ function headerView() {
         </nav>
 
         <button onclick="app.toggleDark()"
-          class="btn-tactile p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          class="btn-action p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           title="Toggle Dark Mode">
-          ${state.darkMode ? '🌙' : '☀️'}
+          ${state.darkMode ? ICONS.moon : ICONS.sun}
         </button>
       </div>
     </header>
@@ -284,10 +308,11 @@ function headerView() {
 // 0. Intro Screen
 function introView() {
   return `
-    <div class="max-w-4xl mx-auto px-4 py-10 view-enter">
+    <div class="max-w-4xl mx-auto px-4 py-10">
       <div class="text-center mb-10">
         <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-4 border border-indigo-200/50 dark:border-indigo-800/50">
-          <span>⚡ Operating Systems Lab Project</span>
+          ${ICONS.sparkles}
+          <span>Operating Systems Lab Project</span>
         </div>
         <h2 class="text-4xl sm:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
           CPU Scheduling Visualizer
@@ -299,24 +324,30 @@ function introView() {
       </div>
 
       <div class="grid sm:grid-cols-3 gap-5 mb-10">
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-          <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/80 flex items-center justify-center text-xl mb-4">⏱️</div>
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 flex items-center justify-center mb-4">
+            ${ICONS.clock}
+          </div>
           <h3 class="font-bold text-slate-900 dark:text-white mb-1">6 Core Algorithms</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Covers both preemptive and non-preemptive algorithms with precise tie-breaking and timeline idle detection.
           </p>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-          <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/80 flex items-center justify-center text-xl mb-4">🎬</div>
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/80 flex items-center justify-center mb-4">
+            ${ICONS.playCircle}
+          </div>
           <h3 class="font-bold text-slate-900 dark:text-white mb-1">Interactive Gantt Playback</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Step forward/backward unit by unit or animate the CPU clock to observe context switches in real time.
           </p>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
-          <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 flex items-center justify-center text-xl mb-4">📊</div>
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 flex items-center justify-center mb-4">
+            ${ICONS.chartBar}
+          </div>
           <h3 class="font-bold text-slate-900 dark:text-white mb-1">Side-by-Side Comparison</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Compare Average Waiting Time, Turnaround Time, and CPU Idle Time across algorithms on identical workloads.
@@ -325,15 +356,16 @@ function introView() {
       </div>
 
       <div class="flex flex-wrap items-center justify-center gap-3">
-        <button onclick="app.goTo('identity')" class="btn-tactile px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5 flex items-center gap-2">
+        <button onclick="app.goTo('identity')" class="btn-action px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 flex items-center gap-2">
           <span>Start Simulation</span>
-          <span>→</span>
+          ${ICONS.arrowRight}
         </button>
-        <button onclick="app.loadPresetAndReview('report')" class="btn-tactile px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-all">
+        <button onclick="app.loadPresetAndReview('report')" class="btn-action px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700">
           Load Report Benchmark (Table 6.1)
         </button>
-        <button onclick="app.goTo('identity')" class="btn-tactile px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm">
-          Course & Group Details
+        <button onclick="app.goTo('identity')" class="btn-action px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm flex items-center gap-1.5">
+          ${ICONS.academic}
+          <span>Course Details</span>
         </button>
       </div>
     </div>
@@ -343,7 +375,7 @@ function introView() {
 // 1. Identity Screen (Course & Group Details)
 function identityView() {
   return `
-    <div class="max-w-3xl mx-auto px-4 py-8 view-enter">
+    <div class="max-w-3xl mx-auto px-4 py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Project Identity</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Course & Group Details</h2>
@@ -391,11 +423,13 @@ function identityView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('intro')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          ← Back
+        <button onclick="app.goTo('intro')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+          ${ICONS.arrowLeft}
+          <span>Back</span>
         </button>
-        <button onclick="app.goTo('configure')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
-          Step 1: Configure Processes →
+        <button onclick="app.goTo('configure')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+          <span>Step 1: Configure Processes</span>
+          ${ICONS.arrowRight}
         </button>
       </div>
     </div>
@@ -404,34 +438,31 @@ function identityView() {
 
 // Render the process rows for the configure table
 function renderProcessRows() {
-  return state.processes.map((p, i) => {
-    const isNew = state.newlyAddedId === p.id;
-    return `
-      <tr data-process-idx="${i}" class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isNew ? 'row-enter' : ''}">
-        <td class="px-4 py-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-          <input type="text" value="${escapeHtml(p.id)}" onchange="app.updateProcess(${i}, 'id', this.value)"
-            class="w-20 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-sm transition-colors">
-        </td>
-        <td class="px-4 py-3">
-          <input type="number" min="0" value="${p.at}" onchange="app.updateProcess(${i}, 'at', this.value)"
-            class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all">
-        </td>
-        <td class="px-4 py-3">
-          <input type="number" min="1" value="${p.bt}" onchange="app.updateProcess(${i}, 'bt', this.value)"
-            class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all">
-        </td>
-        <td class="px-4 py-3">
-          <input type="number" min="1" value="${p.priority}" onchange="app.updateProcess(${i}, 'priority', this.value)"
-            class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all">
-        </td>
-        <td class="px-4 py-3 text-right">
-          <button onclick="app.removeProcess(${i})" class="btn-tactile text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all hover:scale-110 active:scale-95" title="Delete Process">
-            <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join('');
+  return state.processes.map((p, i) => `
+    <tr data-process-idx="${i}" class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+      <td class="px-4 py-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+        <input type="text" value="${escapeHtml(p.id)}" onchange="app.updateProcess(${i}, 'id', this.value)"
+          class="w-20 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-sm">
+      </td>
+      <td class="px-4 py-3">
+        <input type="number" min="0" value="${p.at}" onchange="app.updateProcess(${i}, 'at', this.value)"
+          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+      </td>
+      <td class="px-4 py-3">
+        <input type="number" min="1" value="${p.bt}" onchange="app.updateProcess(${i}, 'bt', this.value)"
+          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+      </td>
+      <td class="px-4 py-3">
+        <input type="number" min="1" value="${p.priority}" onchange="app.updateProcess(${i}, 'priority', this.value)"
+          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+      </td>
+      <td class="px-4 py-3 text-right">
+        <button onclick="app.removeProcess(${i})" class="btn-action text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40" title="Delete Process">
+          ${ICONS.trash}
+        </button>
+      </td>
+    </tr>
+  `).join('');
 }
 
 // 2. Step 1: Configure Processes
@@ -439,7 +470,8 @@ function configureView() {
   const errorsHtml = state.validationErrors.length ? `
     <div id="validationContainer" class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
       <div class="font-bold flex items-center gap-1.5 text-sm">
-        <span>⚠️</span> Please fix the following configuration errors:
+        ${ICONS.alert}
+        <span>Please fix the following configuration errors:</span>
       </div>
       <ul class="list-disc list-inside">
         ${state.validationErrors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
@@ -448,7 +480,7 @@ function configureView() {
   ` : '<div id="validationContainer"></div>';
 
   return `
-    <div class="max-w-4xl mx-auto px-4 py-8 view-enter">
+    <div class="max-w-4xl mx-auto px-4 py-8">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 1 of 5</span>
@@ -459,12 +491,13 @@ function configureView() {
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-          <select onchange="app.loadPreset(this.value)" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
+          <select onchange="app.loadPreset(this.value)" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/20">
             <option value="">Load Preset Workload...</option>
             ${Object.entries(PRESETS).map(([k, v]) => `<option value="${k}">${escapeHtml(v.name)}</option>`).join('')}
           </select>
-          <button onclick="app.addProcess()" class="btn-tactile px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm">
-            <span>+ Add Process</span>
+          <button onclick="app.addProcess()" class="btn-action px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm">
+            ${ICONS.plus}
+            <span>Add Process</span>
           </button>
         </div>
       </div>
@@ -491,11 +524,13 @@ function configureView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('identity')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          ← Back
+        <button onclick="app.goTo('identity')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+          ${ICONS.arrowLeft}
+          <span>Back</span>
         </button>
-        <button onclick="app.validateAndContinue('algorithm')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
-          Step 2: Choose Algorithm →
+        <button onclick="app.validateAndContinue('algorithm')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+          <span>Step 2: Choose Algorithm</span>
+          ${ICONS.arrowRight}
         </button>
       </div>
     </div>
@@ -509,8 +544,8 @@ function algorithmView() {
     const isPreemptive = a.type === 'Preemptive';
 
     return `
-      <div onclick="app.selectAlgo('${key}')"
-        class="btn-tactile cursor-pointer p-5 rounded-2xl border-2 transition-all ${
+      <div id="algo-card-${key}" onclick="app.selectAlgo('${key}')"
+        class="card-interactive cursor-pointer p-5 rounded-2xl border-2 ${
           isSelected
             ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/20'
             : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
@@ -534,8 +569,10 @@ function algorithmView() {
   const compCheckboxes = Object.entries(ALGORITHMS).map(([key, a]) => {
     const isChecked = state.comparisonAlgos.includes(key);
     return `
-      <label class="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
-        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="app.toggleComparisonAlgo('${key}')"
+      <label id="comp-label-${key}" class="card-interactive flex items-center gap-2.5 p-3 rounded-xl border ${
+        isChecked ? 'border-indigo-500/60 bg-indigo-50/30 dark:bg-indigo-950/20' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
+      } cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60">
+        <input type="checkbox" id="comp-check-${key}" ${isChecked ? 'checked' : ''} onchange="app.toggleComparisonAlgo('${key}')"
           class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500">
         <div class="text-xs">
           <span class="font-bold text-slate-800 dark:text-slate-200">${escapeHtml(a.short)}</span>
@@ -548,7 +585,7 @@ function algorithmView() {
   const isRR = state.selectedAlgo === 'rr' || state.comparisonAlgos.includes('rr');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8 view-enter">
+    <div class="max-w-5xl mx-auto px-4 py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 2 of 5</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Choose An Algorithm</h2>
@@ -557,24 +594,24 @@ function algorithmView() {
 
       <div class="mb-8">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Primary Algorithm to Visualize</h3>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" id="algoCardsGrid">
           ${algoCards}
         </div>
       </div>
 
-      ${isRR ? `
-        <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div id="rrQuantumContainer" class="${isRR ? 'block' : 'hidden'} bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 mb-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Time Quantum (q)</h4>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Maximum CPU time allocated per process per round.</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Quantum:</span>
-            <input type="number" min="1" value="${state.quantum}" onchange="app.setQuantum(this.value)"
+            <input type="number" min="1" id="quantumMainInput" value="${state.quantum}" onchange="app.setQuantum(this.value)"
               class="w-20 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
           </div>
         </div>
-      ` : ''}
+      </div>
 
       <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 mb-8">
         <div class="flex items-center justify-between gap-2 mb-4">
@@ -586,17 +623,19 @@ function algorithmView() {
             Select All
           </button>
         </div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="comparisonCheckGrid">
           ${compCheckboxes}
         </div>
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('configure')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          ← Back
+        <button onclick="app.goTo('configure')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+          ${ICONS.arrowLeft}
+          <span>Back</span>
         </button>
-        <button onclick="app.validateAndContinue('review')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
-          Step 3: Review The Schedule →
+        <button onclick="app.validateAndContinue('review')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+          <span>Step 3: Review The Schedule</span>
+          ${ICONS.arrowRight}
         </button>
       </div>
     </div>
@@ -633,7 +672,7 @@ function reviewView() {
   }).join('');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8 view-enter">
+    <div class="max-w-5xl mx-auto px-4 py-8">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 3 of 5</span>
@@ -645,8 +684,9 @@ function reviewView() {
           </div>
         </div>
 
-        <button onclick="app.resetPlayback()" class="btn-tactile px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">
-          Reset Playback
+        <button onclick="app.resetPlayback()" class="btn-action px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+          ${ICONS.refresh}
+          <span>Reset Playback</span>
         </button>
       </div>
 
@@ -686,16 +726,17 @@ function reviewView() {
         <!-- Interactive Playback Toolbar -->
         <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-2">
-            <button onclick="app.stepBack()" class="btn-tactile p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Back (t-1)">
-              ⏮️
+            <button onclick="app.stepBack()" class="btn-action p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700" title="Step Back (t-1)">
+              ${ICONS.stepBack}
             </button>
-            <button id="playbackPlayBtn" onclick="app.togglePlay()" class="btn-tactile px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5">
-              <span>${state.playback.isPlaying ? '⏸️ Pause' : '▶️ Play Animation'}</span>
+            <button id="playbackPlayBtn" onclick="app.togglePlay()" class="btn-action px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-sm flex items-center gap-1.5">
+              ${state.playback.isPlaying ? ICONS.pause : ICONS.play}
+              <span id="playbackPlayBtnText">${state.playback.isPlaying ? 'Pause' : 'Play Animation'}</span>
             </button>
-            <button onclick="app.stepForward()" class="btn-tactile p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Forward (t+1)">
-              ⏭️
+            <button onclick="app.stepForward()" class="btn-action p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700" title="Step Forward (t+1)">
+              ${ICONS.stepForward}
             </button>
-            <button onclick="app.resetPlayback()" class="btn-tactile text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-1">
+            <button onclick="app.resetPlayback()" class="btn-action text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-1">
               Reset
             </button>
           </div>
@@ -705,7 +746,7 @@ function reviewView() {
             <span class="text-slate-400 font-medium">Speed:</span>
             ${[0.5, 1, 2].map((s) => `
               <button onclick="app.setPlaybackSpeed(${s})"
-                class="btn-tactile px-2 py-1 rounded text-xs font-semibold ${
+                class="btn-action px-2 py-1 rounded text-xs font-semibold ${
                   state.playback.speed === s
                     ? 'bg-indigo-600 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -761,11 +802,13 @@ function reviewView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('algorithm')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          ← Back
+        <button onclick="app.goTo('algorithm')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+          ${ICONS.arrowLeft}
+          <span>Back</span>
         </button>
-        <button onclick="app.goTo('compare-setup')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
-          Step 4: Configure Comparison →
+        <button onclick="app.goTo('compare-setup')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+          <span>Step 4: Configure Comparison</span>
+          ${ICONS.arrowRight}
         </button>
       </div>
     </div>
@@ -777,7 +820,7 @@ function compareSetupView() {
   const hasRR = state.comparisonAlgos.includes('rr');
 
   return `
-    <div class="max-w-3xl mx-auto px-4 py-8 view-enter">
+    <div class="max-w-3xl mx-auto px-4 py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 4 of 5</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Comparison Inputs</h2>
@@ -810,16 +853,18 @@ function compareSetupView() {
         ` : ''}
 
         <div class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          💡 <strong>Tip:</strong> In the next step, all selected algorithms will run on identical arrival times, burst times, and priorities to identify the optimal scheduling strategy.
+          In the next step, all selected algorithms will run on identical arrival times, burst times, and priorities to identify the optimal scheduling strategy.
         </div>
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('review')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          ← Back
+        <button onclick="app.goTo('review')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+          ${ICONS.arrowLeft}
+          <span>Back</span>
         </button>
-        <button onclick="app.goTo('comparison')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
-          Step 5: Compare Algorithms →
+        <button onclick="app.goTo('comparison')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+          <span>Step 5: Compare Algorithms</span>
+          ${ICONS.arrowRight}
         </button>
       </div>
     </div>
@@ -901,11 +946,11 @@ function comparisonView() {
         </div>
         <!-- Waiting Time Bar -->
         <div class="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
-          <div class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: ${wtPct}%;"></div>
+          <div class="bg-amber-500 h-full rounded-full transition-all duration-300" style="width: ${wtPct}%;"></div>
         </div>
         <!-- Turnaround Time Bar -->
         <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-          <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: ${tatPct}%;"></div>
+          <div class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: ${tatPct}%;"></div>
         </div>
       </div>
     `;
@@ -929,7 +974,7 @@ function comparisonView() {
   `).join('');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8 view-enter">
+    <div class="max-w-5xl mx-auto px-4 py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 5 of 5</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Compare Algorithms</h2>
@@ -938,8 +983,9 @@ function comparisonView() {
 
       <!-- Verdict Banner -->
       <div class="p-5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200 dark:border-indigo-800 mb-6">
-        <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-1">
-          <span>🏆</span> Scheduling Verdict
+        <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
+          ${ICONS.trophy}
+          <span>Scheduling Verdict</span>
         </h3>
         <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
           <strong class="text-indigo-600 dark:text-indigo-400">${escapeHtml(bestWtAlgo.algo.name)}</strong> yielded the lowest average waiting time (<span class="font-mono font-bold">${fmt(minWt)}</span>),
@@ -993,11 +1039,13 @@ function comparisonView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('compare-setup')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-          ← Back
+        <button onclick="app.goTo('compare-setup')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+          ${ICONS.arrowLeft}
+          <span>Back</span>
         </button>
-        <button onclick="app.goTo('end')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
-          Finish Simulation →
+        <button onclick="app.goTo('end')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+          <span>Finish Simulation</span>
+          ${ICONS.arrowRight}
         </button>
       </div>
     </div>
@@ -1007,9 +1055,9 @@ function comparisonView() {
 // 7. Complete Screen (The End)
 function endView() {
   return `
-    <div class="max-w-2xl mx-auto px-4 py-16 text-center view-enter">
-      <div class="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-3xl shadow-xl shadow-indigo-500/20 mb-6">
-        🎉
+    <div class="max-w-2xl mx-auto px-4 py-16 text-center">
+      <div class="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 mb-6">
+        ${ICONS.check}
       </div>
       <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Simulation Complete</span>
       <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white mt-2">All Algorithms Evaluated</h2>
@@ -1018,11 +1066,13 @@ function endView() {
       </p>
 
       <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <button onclick="app.resetAll()" class="btn-tactile px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5">
-          🔄 Run Again (Reset Benchmark)
+        <button onclick="app.resetAll()" class="btn-action px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 flex items-center gap-2">
+          ${ICONS.refresh}
+          <span>Run Again (Reset Benchmark)</span>
         </button>
-        <button onclick="app.goTo('configure')" class="btn-tactile px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-colors">
-          ✏️ Modify Current Processes
+        <button onclick="app.goTo('configure')" class="btn-action px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 flex items-center gap-2">
+          ${ICONS.edit}
+          <span>Modify Current Processes</span>
         </button>
       </div>
     </div>
@@ -1121,7 +1171,10 @@ function updatePlaybackTick() {
   }
   const playBtn = document.getElementById('playbackPlayBtn');
   if (playBtn) {
-    playBtn.innerHTML = `<span>${state.playback.isPlaying ? '⏸️ Pause' : '▶️ Play Animation'}</span>`;
+    playBtn.innerHTML = `
+      ${state.playback.isPlaying ? ICONS.pause : ICONS.play}
+      <span id="playbackPlayBtnText">${state.playback.isPlaying ? 'Pause' : 'Play Animation'}</span>
+    `;
   }
 
   // Highlight active gantt segment
@@ -1129,9 +1182,9 @@ function updatePlaybackTick() {
     const sStart = Number(bar.dataset.start);
     const sEnd = Number(bar.dataset.end);
     if (currentT >= sStart && currentT < sEnd) {
-      bar.classList.add('ring-2', 'ring-amber-400', 'z-10', 'scale-[1.02]');
+      bar.classList.add('ring-2', 'ring-amber-400', 'z-10');
     } else {
-      bar.classList.remove('ring-2', 'ring-amber-400', 'z-10', 'scale-[1.02]');
+      bar.classList.remove('ring-2', 'ring-amber-400', 'z-10');
     }
   });
 }
@@ -1142,9 +1195,8 @@ window.app = {
     app.stopPlaybackTimer();
     state.view = viewName;
     state.validationErrors = [];
-    state.newlyAddedId = null;
     renderApp();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   },
 
   toggleDark() {
@@ -1157,7 +1209,6 @@ window.app = {
     if (!key || !PRESETS[key]) return;
     state.processes = JSON.parse(JSON.stringify(PRESETS[key].processes));
     state.validationErrors = [];
-    state.newlyAddedId = null;
     renderConfigureTableOnly();
   },
 
@@ -1179,7 +1230,6 @@ window.app = {
     }
     state.processes.push({ id: newId, at: 0, bt: 4, priority: 2 });
     state.validationErrors = [];
-    state.newlyAddedId = newId;
     renderConfigureTableOnly();
   },
 
@@ -1191,7 +1241,8 @@ window.app = {
         valContainer.innerHTML = `
           <div class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
             <div class="font-bold flex items-center gap-1.5 text-sm">
-              <span>⚠️</span> Please fix the following configuration errors:
+              ${ICONS.alert}
+              <span>Please fix the following configuration errors:</span>
             </div>
             <ul class="list-disc list-inside">
               <li>At least one process is required in the schedule.</li>
@@ -1202,21 +1253,9 @@ window.app = {
       return;
     }
 
-    const rowEl = document.querySelector(`tr[data-process-idx="${idx}"]`);
-    if (rowEl) {
-      rowEl.classList.add('row-exit');
-      setTimeout(() => {
-        state.processes.splice(idx, 1);
-        state.newlyAddedId = null;
-        state.validationErrors = [];
-        renderConfigureTableOnly();
-      }, 200);
-    } else {
-      state.processes.splice(idx, 1);
-      state.newlyAddedId = null;
-      state.validationErrors = [];
-      renderConfigureTableOnly();
-    }
+    state.processes.splice(idx, 1);
+    state.validationErrors = [];
+    renderConfigureTableOnly();
   },
 
   updateProcess(idx, field, value) {
@@ -1233,7 +1272,8 @@ window.app = {
         valContainer.innerHTML = `
           <div class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
             <div class="font-bold flex items-center gap-1.5 text-sm">
-              <span>⚠️</span> Please fix the following configuration errors:
+              ${ICONS.alert}
+              <span>Please fix the following configuration errors:</span>
             </div>
             <ul class="list-disc list-inside">
               ${state.validationErrors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
@@ -1257,39 +1297,99 @@ window.app = {
     app.goTo(targetView);
   },
 
+  // In-place algorithm selection without page re-render or shaking
   selectAlgo(key) {
     if (!ALGORITHMS[key]) return;
     state.selectedAlgo = key;
-    renderApp();
+
+    // Update algorithm cards visually in-place
+    Object.keys(ALGORITHMS).forEach((k) => {
+      const card = document.getElementById(`algo-card-${k}`);
+      if (card) {
+        if (k === key) {
+          card.className = 'card-interactive cursor-pointer p-5 rounded-2xl border-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/20';
+        } else {
+          card.className = 'card-interactive cursor-pointer p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700';
+        }
+      }
+    });
+
+    // Toggle RR quantum input visibility in-place
+    const isRR = state.selectedAlgo === 'rr' || state.comparisonAlgos.includes('rr');
+    const rrContainer = document.getElementById('rrQuantumContainer');
+    if (rrContainer) {
+      if (isRR) {
+        rrContainer.classList.remove('hidden');
+        rrContainer.classList.add('block');
+      } else {
+        rrContainer.classList.add('hidden');
+        rrContainer.classList.remove('block');
+      }
+    }
   },
 
   setQuantum(val) {
     state.quantum = Math.max(1, parseInt(val, 10) || 1);
-    renderApp();
   },
 
   setComparisonQuantum(algo, val) {
     state.comparisonQuantums[algo] = Math.max(1, parseInt(val, 10) || 1);
-    renderApp();
   },
 
+  // In-place comparison algorithm toggle without page re-render or shaking
   toggleComparisonAlgo(key) {
     const idx = state.comparisonAlgos.indexOf(key);
+    const checkbox = document.getElementById(`comp-check-${key}`);
+    const label = document.getElementById(`comp-label-${key}`);
+
     if (idx >= 0) {
       if (state.comparisonAlgos.length <= 2) {
         alert('At least two algorithms must be selected for comparison.');
+        if (checkbox) checkbox.checked = true;
         return;
       }
       state.comparisonAlgos.splice(idx, 1);
+      if (label) {
+        label.className = 'card-interactive flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60';
+      }
     } else {
       state.comparisonAlgos.push(key);
+      if (label) {
+        label.className = 'card-interactive flex items-center gap-2.5 p-3 rounded-xl border border-indigo-500/60 bg-indigo-50/30 dark:bg-indigo-950/20 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60';
+      }
     }
-    renderApp();
+
+    // Toggle RR quantum container visibility if RR changed
+    const isRR = state.selectedAlgo === 'rr' || state.comparisonAlgos.includes('rr');
+    const rrContainer = document.getElementById('rrQuantumContainer');
+    if (rrContainer) {
+      if (isRR) {
+        rrContainer.classList.remove('hidden');
+        rrContainer.classList.add('block');
+      } else {
+        rrContainer.classList.add('hidden');
+        rrContainer.classList.remove('block');
+      }
+    }
   },
 
   selectAllComparisonAlgos() {
     state.comparisonAlgos = Object.keys(ALGORITHMS);
-    renderApp();
+    Object.keys(ALGORITHMS).forEach((k) => {
+      const checkbox = document.getElementById(`comp-check-${k}`);
+      if (checkbox) checkbox.checked = true;
+      const label = document.getElementById(`comp-label-${k}`);
+      if (label) {
+        label.className = 'card-interactive flex items-center gap-2.5 p-3 rounded-xl border border-indigo-500/60 bg-indigo-50/30 dark:bg-indigo-950/20 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60';
+      }
+    });
+
+    const isRR = state.selectedAlgo === 'rr' || state.comparisonAlgos.includes('rr');
+    const rrContainer = document.getElementById('rrQuantumContainer');
+    if (rrContainer && isRR) {
+      rrContainer.classList.remove('hidden');
+      rrContainer.classList.add('block');
+    }
   },
 
   // Timeline Playback Methods
