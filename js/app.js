@@ -407,18 +407,18 @@ function identityView() {
           <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Group Members</h3>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-              <p class="font-bold text-slate-900 dark:text-white text-sm">Tasir Rahman</p>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023100000371</p>
+              <p class="font-bold text-slate-900 dark:text-white text-sm">Jannat Hossain</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 202300000020</p>
               <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 64</span>
             </div>
             <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-              <p class="font-bold text-slate-900 dark:text-white text-sm">Azizul Hakim Omor</p>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023100000012</p>
+              <p class="font-bold text-slate-900 dark:text-white text-sm">Attini Aziz Ditiya</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023000000164</p>
               <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 64</span>
             </div>
             <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
-              <p class="font-bold text-slate-900 dark:text-white text-sm">Saiful Islam Riad</p>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023000000022</p>
+              <p class="font-bold text-slate-900 dark:text-white text-sm">Kazi Abu Rahid</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023000000146</p>
               <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 63</span>
             </div>
           </div>
