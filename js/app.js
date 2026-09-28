@@ -126,7 +126,7 @@ const state = {
   comparisonAlgos: ['fcfs', 'sjf', 'rr', 'priority', 'srtf', 'ljf'],
   comparisonQuantums: { rr: 2 },
   validationErrors: [],
-  darkMode: localStorage.getItem('cpuDarkMode') === 'true',
+  darkMode: localStorage.getItem('cpuDarkMode') !== 'false',
   playback: {
     currentTime: 0,
     isPlaying: false,
