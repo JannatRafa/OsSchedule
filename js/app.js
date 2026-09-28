@@ -1,0 +1,1284 @@
+// CPU Scheduling Visualizer - Main Application
+// Pure vanilla JS + Tailwind CSS (ES Module)
+// Reference implementation with step playback, comparison charts, and academic presets.
+
+import { runScheduler, validateProcesses } from './scheduler.js';
+
+const ALGORITHMS = {
+  fcfs: {
+    name: 'First Come First Serve (FCFS)',
+    short: 'FCFS',
+    type: 'Non-preemptive',
+    desc: 'Executes processes strictly in arrival order. Simple and fair arrival ordering, but susceptible to the convoy effect.',
+  },
+  sjf: {
+    name: 'Shortest Job First (SJF)',
+    short: 'SJF',
+    type: 'Non-preemptive',
+    desc: 'Selects the arrived process with the shortest burst time. Minimizes average waiting time for non-preemptive workloads.',
+  },
+  priority: {
+    name: 'Priority Scheduling',
+    short: 'Priority',
+    type: 'Non-preemptive',
+    desc: 'Executes the process with the highest priority (lowest numeric value). Tie-breaks by arrival time and ID.',
+  },
+  rr: {
+    name: 'Round Robin (RR)',
+    short: 'Round Robin',
+    type: 'Preemptive',
+    desc: 'Allocates CPU in cyclic time slices (quantum) using a FIFO ready queue. Responsive for time-sharing systems.',
+  },
+  srtf: {
+    name: 'Shortest Remaining Time First (SRTF)',
+    short: 'SRTF',
+    type: 'Preemptive',
+    desc: 'Preemptive variant of SJF. Re-evaluates ready processes each time unit, switching to the shortest remaining burst.',
+  },
+  ljf: {
+    name: 'Longest Job First (LJF)',
+    short: 'LJF',
+    type: 'Non-preemptive',
+    desc: 'Selects the arrived process with the largest burst time. Useful for demonstrating worst-case scheduling delays.',
+  },
+};
+
+const PRESETS = {
+  report: {
+    name: 'Report Benchmark (Table 6.1)',
+    processes: [
+      { id: 'P1', at: 0, bt: 5, priority: 2 },
+      { id: 'P2', at: 1, bt: 3, priority: 1 },
+      { id: 'P3', at: 2, bt: 8, priority: 3 },
+      { id: 'P4', at: 4, bt: 2, priority: 2 },
+      { id: 'P5', at: 2, bt: 1, priority: 1 },
+    ],
+  },
+  simple: {
+    name: 'Classic 4-Process',
+    processes: [
+      { id: 'P1', at: 0, bt: 6, priority: 3 },
+      { id: 'P2', at: 1, bt: 3, priority: 1 },
+      { id: 'P3', at: 2, bt: 8, priority: 2 },
+      { id: 'P4', at: 3, bt: 2, priority: 1 },
+    ],
+  },
+  idle: {
+    name: 'With CPU Idle Gaps',
+    processes: [
+      { id: 'P1', at: 0, bt: 3, priority: 1 },
+      { id: 'P2', at: 6, bt: 4, priority: 2 },
+      { id: 'P3', at: 8, bt: 2, priority: 3 },
+    ],
+  },
+  convoy: {
+    name: 'Convoy Effect Demonstration',
+    processes: [
+      { id: 'P1', at: 0, bt: 18, priority: 2 },
+      { id: 'P2', at: 1, bt: 2, priority: 1 },
+      { id: 'P3', at: 2, bt: 2, priority: 1 },
+      { id: 'P4', at: 3, bt: 1, priority: 1 },
+    ],
+  },
+};
+
+const STEPS = [
+  { id: 'intro', label: 'Overview' },
+  { id: 'identity', label: 'Course Info' },
+  { id: 'configure', label: '1. Processes' },
+  { id: 'algorithm', label: '2. Algorithm' },
+  { id: 'review', label: '3. Review' },
+  { id: 'compare-setup', label: '4. Setup' },
+  { id: 'comparison', label: '5. Compare' },
+  { id: 'end', label: 'Complete' },
+];
+
+const state = {
+  view: 'intro',
+  processes: JSON.parse(JSON.stringify(PRESETS.report.processes)),
+  selectedAlgo: 'fcfs',
+  quantum: 2,
+  comparisonAlgos: ['fcfs', 'sjf', 'rr', 'priority', 'srtf', 'ljf'],
+  comparisonQuantums: { rr: 2 },
+  validationErrors: [],
+  darkMode: localStorage.getItem('cpuDarkMode') === 'true',
+  playback: {
+    currentTime: 0,
+    isPlaying: false,
+    speed: 1,
+    timerId: null,
+  },
+};
+
+function applyTheme() {
+  if (state.darkMode) {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function fmt(n) {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
+
+const PALETTE = [
+  '#4f46e5', // indigo
+  '#0284c7', // sky
+  '#059669', // emerald
+  '#d97706', // amber
+  '#e11d48', // rose
+  '#7c3aed', // violet
+  '#0891b2', // cyan
+  '#65a30d', // lime
+  '#c026d3', // fuchsia
+];
+
+function colorForId(id) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  return PALETTE[hash % PALETTE.length];
+}
+
+function hexToRgba(hex, alpha) {
+  const c = hex.replace('#', '');
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Gantt Chart Renderer
+function renderGantt(gantt, options = {}) {
+  const { compact = false, maxTime = null, highlightTime = null } = options;
+  if (!gantt || !gantt.length) {
+    return '<p class="text-slate-400 dark:text-slate-500 text-sm italic py-4 text-center">No execution segments recorded.</p>';
+  }
+
+  const totalEnd = maxTime || gantt[gantt.length - 1].end;
+  if (totalEnd === 0) return '';
+
+  const segmentsHtml = gantt.map((seg, i) => {
+    const isIdle = seg.id === 'IDLE';
+    const dur = seg.end - seg.start;
+    const pctStart = (seg.start / totalEnd) * 100;
+    const pctWidth = (dur / totalEnd) * 100;
+    const color = isIdle ? '#64748b' : colorForId(seg.id);
+    const isCurrent = highlightTime !== null && highlightTime >= seg.start && highlightTime < seg.end;
+
+    return `
+      <div class="gantt-bar group absolute top-0 bottom-0 flex flex-col justify-center items-center transition-all ${isCurrent ? 'ring-2 ring-amber-400 z-10 scale-[1.02]' : ''}"
+           style="left: ${pctStart}%; width: ${pctWidth}%; background-color: ${color}; ${isIdle ? 'background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0 6px, transparent 6px 12px);' : ''}">
+        
+        <!-- Tooltip -->
+        <div class="absolute -top-9 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[11px] font-mono px-2 py-0.5 rounded shadow pointer-events-none z-30 whitespace-nowrap">
+          ${isIdle ? 'CPU IDLE' : escapeHtml(seg.id)}: [${seg.start} → ${seg.end}] (${dur}u)
+        </div>
+
+        <!-- Label -->
+        <span class="text-xs font-bold text-white drop-shadow-sm truncate px-1 pointer-events-none">
+          ${isIdle ? 'IDLE' : escapeHtml(seg.id)}
+        </span>
+        ${!compact && dur > 1 ? `<span class="text-[10px] text-white/80 font-mono pointer-events-none">(${dur})</span>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Timeline scale ticks
+  const tickCount = Math.min(12, totalEnd);
+  const step = Math.max(1, Math.round(totalEnd / tickCount));
+  const tickSet = new Set([0, totalEnd]);
+  for (let t = 0; t <= totalEnd; t += step) tickSet.add(t);
+  const sortedTicks = Array.from(tickSet).sort((a, b) => a - b);
+
+  const ticksHtml = sortedTicks.map((t) => {
+    const leftPct = (t / totalEnd) * 100;
+    return `
+      <div class="absolute -translate-x-1/2 flex flex-col items-center pointer-events-none" style="left: ${leftPct}%;">
+        <span class="h-1.5 w-px bg-slate-300 dark:bg-slate-700"></span>
+        <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">${t}</span>
+      </div>
+    `;
+  }).join('');
+
+  // Current playback time cursor
+  const cursorHtml = highlightTime !== null ? `
+    <div class="absolute top-0 bottom-0 w-0.5 bg-amber-500 z-20 pointer-events-none transition-all duration-150" style="left: ${(highlightTime / totalEnd) * 100}%">
+      <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-500 rotate-45"></div>
+      <div class="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 font-mono text-[9px] font-bold px-1 rounded">t=${highlightTime}</div>
+    </div>
+  ` : '';
+
+  return `
+    <div class="relative w-full pt-1 pb-6 select-none">
+      <div class="relative ${compact ? 'h-10' : 'h-16'} rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-inner">
+        ${segmentsHtml}
+        ${cursorHtml}
+      </div>
+      <div class="relative w-full h-4 mt-1">
+        ${ticksHtml}
+      </div>
+    </div>
+  `;
+}
+
+// Navigation Header
+function headerView() {
+  const currentIdx = STEPS.findIndex((s) => s.id === state.view);
+
+  const pills = STEPS.map((s, idx) => {
+    const isActive = s.id === state.view;
+    const isCompleted = idx < currentIdx;
+    return `
+      <button onclick="app.goTo('${s.id}')"
+        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+          isActive
+            ? 'bg-indigo-600 text-white shadow-sm font-semibold'
+            : isCompleted
+            ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50'
+            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+        }">
+        <span class="w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+          isActive
+            ? 'bg-white text-indigo-600 font-bold'
+            : isCompleted
+            ? 'bg-emerald-600 text-white font-bold'
+            : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+        }">
+          ${isCompleted ? '✓' : idx}
+        </span>
+        <span class="hidden md:inline">${escapeHtml(s.label)}</span>
+      </button>
+    `;
+  }).join('');
+
+  return `
+    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm">
+      <div class="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-indigo-500/20">
+            CPU
+          </div>
+          <div>
+            <h1 class="text-sm font-bold leading-tight text-slate-900 dark:text-white">CPU Scheduling Visualizer</h1>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">CSE362 Lab Project</p>
+          </div>
+        </div>
+
+        <nav class="flex items-center gap-1 overflow-x-auto py-1">
+          ${pills}
+        </nav>
+
+        <button onclick="app.toggleDark()"
+          class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          title="Toggle Dark Mode">
+          ${state.darkMode ? '🌙' : '☀️'}
+        </button>
+      </div>
+    </header>
+  `;
+}
+
+// 0. Intro Screen
+function introView() {
+  return `
+    <div class="max-w-4xl mx-auto px-4 py-10 pop-in">
+      <div class="text-center mb-10">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-4 border border-indigo-200/50 dark:border-indigo-800/50">
+          <span>⚡ Operating Systems Lab Project</span>
+        </div>
+        <h2 class="text-4xl sm:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+          CPU Scheduling Visualizer
+        </h2>
+        <p class="mt-4 text-slate-600 dark:text-slate-300 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
+          Interactive simulation and comprehensive comparison of six foundational CPU scheduling algorithms:
+          <span class="font-semibold text-indigo-600 dark:text-indigo-400">FCFS, SJF, Priority, Round Robin, SRTF, and LJF</span>.
+        </p>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-5 mb-10">
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+          <div class="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-950/80 flex items-center justify-center text-xl mb-4">⏱️</div>
+          <h3 class="font-bold text-slate-900 dark:text-white mb-1">6 Core Algorithms</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Covers both preemptive and non-preemptive algorithms with precise tie-breaking and timeline idle detection.
+          </p>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+          <div class="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-950/80 flex items-center justify-center text-xl mb-4">🎬</div>
+          <h3 class="font-bold text-slate-900 dark:text-white mb-1">Interactive Gantt Playback</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Step forward/backward unit by unit or animate the CPU clock to observe context switches in real time.
+          </p>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+          <div class="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 flex items-center justify-center text-xl mb-4">📊</div>
+          <h3 class="font-bold text-slate-900 dark:text-white mb-1">Side-by-Side Comparison</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Compare Average Waiting Time, Turnaround Time, and CPU Idle Time across algorithms on identical workloads.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <button onclick="app.goTo('identity')" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5 flex items-center gap-2">
+          <span>Start Simulation</span>
+          <span>→</span>
+        </button>
+        <button onclick="app.loadPresetAndReview('report')" class="px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-all">
+          Load Report Benchmark (Table 6.1)
+        </button>
+        <button onclick="app.goTo('identity')" class="px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm">
+          Course & Group Details
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// 1. Identity Screen (Course & Group Details)
+function identityView() {
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-8 pop-in">
+      <div class="mb-6">
+        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Project Identity</span>
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Course & Group Details</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Academic context and project contributors from the reference report.</p>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm p-6 mb-6 space-y-6">
+        <div class="grid sm:grid-cols-2 gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <span class="text-xs uppercase font-semibold text-slate-400">Course Code</span>
+            <p class="text-lg font-bold text-slate-900 dark:text-white">CSE362 (Operating Systems)</p>
+          </div>
+          <div>
+            <span class="text-xs uppercase font-semibold text-slate-400">Section</span>
+            <p class="text-lg font-bold text-slate-900 dark:text-white">04</p>
+          </div>
+          <div class="sm:col-span-2">
+            <span class="text-xs uppercase font-semibold text-slate-400">Project Title</span>
+            <p class="text-base font-semibold text-indigo-600 dark:text-indigo-400">
+              Designing algorithm visualizer for CPU scheduling algorithms
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Group Members</h3>
+          <div class="grid sm:grid-cols-3 gap-3">
+            <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+              <p class="font-bold text-slate-900 dark:text-white text-sm">Tasir Rahman</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023100000371</p>
+              <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 64</span>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+              <p class="font-bold text-slate-900 dark:text-white text-sm">Azizul Hakim Omor</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023100000012</p>
+              <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 64</span>
+            </div>
+            <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+              <p class="font-bold text-slate-900 dark:text-white text-sm">Saiful Islam Riad</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023000000022</p>
+              <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 63</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <button onclick="app.goTo('intro')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          ← Back
+        </button>
+        <button onclick="app.goTo('configure')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+          Step 1: Configure Processes →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// 2. Step 1: Configure Processes
+function configureView() {
+  const rows = state.processes.map((p, i) => `
+    <tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+      <td class="px-4 py-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+        <input type="text" value="${escapeHtml(p.id)}" onchange="app.updateProcess(${i}, 'id', this.value)"
+          class="w-20 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-sm">
+      </td>
+      <td class="px-4 py-3">
+        <input type="number" min="0" value="${p.at}" onchange="app.updateProcess(${i}, 'at', this.value)"
+          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+      </td>
+      <td class="px-4 py-3">
+        <input type="number" min="1" value="${p.bt}" onchange="app.updateProcess(${i}, 'bt', this.value)"
+          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+      </td>
+      <td class="px-4 py-3">
+        <input type="number" min="1" value="${p.priority}" onchange="app.updateProcess(${i}, 'priority', this.value)"
+          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+      </td>
+      <td class="px-4 py-3 text-right">
+        <button onclick="app.removeProcess(${i})" class="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors" title="Delete Process">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+        </button>
+      </td>
+    </tr>
+  `).join('');
+
+  const errorsHtml = state.validationErrors.length ? `
+    <div class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
+      <div class="font-bold flex items-center gap-1.5 text-sm">
+        <span>⚠️</span> Please fix the following configuration errors:
+      </div>
+      <ul class="list-disc list-inside">
+        ${state.validationErrors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
+      </ul>
+    </div>
+  ` : '';
+
+  return `
+    <div class="max-w-4xl mx-auto px-4 py-8 pop-in">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 1 of 5</span>
+          <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Processes</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Set Arrival Time (AT $\\ge 0$), Burst Time (BT $\\ge 1$), and Priority ($\\ge 1$, lower = higher priority).</p>
+        </div>
+
+        <div class="flex items-center gap-2 flex-wrap">
+          <select onchange="app.loadPreset(this.value)" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/20">
+            <option value="">Load Preset Workload...</option>
+            ${Object.entries(PRESETS).map(([k, v]) => `<option value="${k}">${escapeHtml(v.name)}</option>`).join('')}
+          </select>
+          <button onclick="app.addProcess()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm">
+            <span>+ Add Process</span>
+          </button>
+        </div>
+      </div>
+
+      ${errorsHtml}
+
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mb-6">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <th class="px-4 py-3">Process ID</th>
+                <th class="px-4 py-3">Arrival Time (AT)</th>
+                <th class="px-4 py-3">Burst Time (BT)</th>
+                <th class="px-4 py-3">Priority</th>
+                <th class="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-sm">
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <button onclick="app.goTo('identity')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          ← Back
+        </button>
+        <button onclick="app.validateAndContinue('algorithm')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+          Step 2: Choose Algorithm →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// 3. Step 2: Choose Algorithm & Comparison Setup
+function algorithmView() {
+  const algoCards = Object.entries(ALGORITHMS).map(([key, a]) => {
+    const isSelected = state.selectedAlgo === key;
+    const isPreemptive = a.type === 'Preemptive';
+
+    return `
+      <div onclick="app.selectAlgo('${key}')"
+        class="cursor-pointer p-5 rounded-2xl border-2 transition-all ${
+          isSelected
+            ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/20'
+            : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+        }">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base">${escapeHtml(a.name)}</h3>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            isPreemptive
+              ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
+              : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
+          }">
+            ${a.type}
+          </span>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${escapeHtml(a.desc)}</p>
+      </div>
+    `;
+  }).join('');
+
+  // Comparison checkboxes
+  const compCheckboxes = Object.entries(ALGORITHMS).map(([key, a]) => {
+    const isChecked = state.comparisonAlgos.includes(key);
+    return `
+      <label class="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="app.toggleComparisonAlgo('${key}')"
+          class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500">
+        <div class="text-xs">
+          <span class="font-bold text-slate-800 dark:text-slate-200">${escapeHtml(a.short)}</span>
+          <span class="text-[10px] text-slate-400 block">${a.type}</span>
+        </div>
+      </label>
+    `;
+  }).join('');
+
+  const isRR = state.selectedAlgo === 'rr' || state.comparisonAlgos.includes('rr');
+
+  return `
+    <div class="max-w-5xl mx-auto px-4 py-8 pop-in">
+      <div class="mb-6">
+        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 2 of 5</span>
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Choose An Algorithm</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Pick the primary algorithm to visualize now, and choose which algorithms to compare in Step 5.</p>
+      </div>
+
+      <div class="mb-8">
+        <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Primary Algorithm to Visualize</h3>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          ${algoCards}
+        </div>
+      </div>
+
+      ${isRR ? `
+        <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Time Quantum ($q$)</h4>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Maximum CPU time allocated per process per round.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Quantum:</span>
+            <input type="number" min="1" value="${state.quantum}" onchange="app.setQuantum(this.value)"
+              class="w-20 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 mb-8">
+        <div class="flex items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-sm">Select Algorithms for Comparison</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Choose at least two algorithms to evaluate side by side.</p>
+          </div>
+          <button onclick="app.selectAllComparisonAlgos()" class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">
+            Select All
+          </button>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          ${compCheckboxes}
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <button onclick="app.goTo('configure')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          ← Back
+        </button>
+        <button onclick="app.validateAndContinue('review')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+          Step 3: Review The Schedule →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// 4. Step 3: Review Schedule & Interactive Playback
+function reviewView() {
+  const result = runScheduler(state.processes, state.selectedAlgo, state.quantum);
+  const totalMakespan = result.makespan;
+  const currentT = state.playback.currentTime;
+
+  // Active process at currentT
+  const activeSeg = result.gantt.find((s) => currentT >= s.start && currentT < s.end);
+  const activeLabel = activeSeg ? (activeSeg.id === 'IDLE' ? 'CPU IDLE' : activeSeg.id) : (currentT >= totalMakespan ? 'Execution Completed' : 'Waiting');
+
+  // Metrics Table Rows
+  const tableRows = result.rows.map((row) => {
+    const color = colorForId(row.id);
+    return `
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors font-mono text-sm">
+        <td class="px-4 py-3 font-bold flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full" style="background-color: ${color}"></span>
+          <span class="text-slate-900 dark:text-white">${escapeHtml(row.id)}</span>
+        </td>
+        <td class="px-4 py-3">${row.at}</td>
+        <td class="px-4 py-3 font-semibold">${row.bt}</td>
+        <td class="px-4 py-3">${row.priority}</td>
+        <td class="px-4 py-3 font-semibold text-indigo-600 dark:text-indigo-400">${row.ct}</td>
+        <td class="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">${row.tat}</td>
+        <td class="px-4 py-3 font-bold text-amber-600 dark:text-amber-400">${row.wt}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="max-w-5xl mx-auto px-4 py-8 pop-in">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 3 of 5</span>
+          <div class="flex items-center gap-3 mt-1">
+            <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Review The Schedule</h2>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+              ${escapeHtml(ALGORITHMS[state.selectedAlgo].name)}
+            </span>
+          </div>
+        </div>
+
+        <button onclick="app.resetPlayback()" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">
+          Reset Playback
+        </button>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Average Waiting Time</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">${fmt(result.avgWt)}</p>
+          <span class="text-[10px] text-slate-400 font-mono">avg WT = ΣWT / N</span>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Average Turnaround</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">${fmt(result.avgTat)}</p>
+          <span class="text-[10px] text-slate-400 font-mono">avg TAT = ΣTAT / N</span>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Makespan</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">${result.makespan}</p>
+          <span class="text-[10px] text-slate-400 font-mono">completion of last job</span>
+        </div>
+        <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">CPU Idle Time</span>
+          <p class="text-2xl sm:text-3xl font-extrabold text-slate-600 dark:text-slate-300 mt-1">${fmt(result.idle)}</p>
+          <span class="text-[10px] text-slate-400 font-mono">unallocated CPU cycles</span>
+        </div>
+      </div>
+
+      <!-- Gantt Chart Section -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-slate-900 dark:text-white text-base">Gantt Chart Timeline</h3>
+          <span class="text-xs font-mono text-slate-400">Total duration: ${totalMakespan} time units</span>
+        </div>
+
+        ${renderGantt(result.gantt, { highlightTime: currentT })}
+
+        <!-- Interactive Playback Toolbar -->
+        <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-2">
+            <button onclick="app.stepBack()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Back (t-1)">
+              ⏮️
+            </button>
+            <button onclick="app.togglePlay()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5">
+              <span>${state.playback.isPlaying ? '⏸️ Pause' : '▶️ Play Animation'}</span>
+            </button>
+            <button onclick="app.stepForward()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Forward (t+1)">
+              ⏭️
+            </button>
+            <button onclick="app.resetPlayback()" class="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-1">
+              Reset
+            </button>
+          </div>
+
+          <!-- Playback Speed -->
+          <div class="flex items-center gap-1.5 text-xs">
+            <span class="text-slate-400 font-medium">Speed:</span>
+            ${[0.5, 1, 2].map((s) => `
+              <button onclick="app.setPlaybackSpeed(${s})"
+                class="px-2 py-1 rounded text-xs font-semibold ${
+                  state.playback.speed === s
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                }">
+                ${s}x
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- Current Clock State -->
+          <div class="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-xs flex items-center gap-3">
+            <div>Clock: <span class="font-bold text-indigo-600 dark:text-indigo-400">t = ${currentT} / ${totalMakespan}</span></div>
+            <div>Active: <span class="font-bold text-emerald-600 dark:text-emerald-400">${activeLabel}</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Process Metrics Table -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mb-6">
+        <div class="p-4 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+          <h3 class="font-bold text-slate-900 dark:text-white text-sm">Detailed Metrics by Process</h3>
+          <span class="text-xs text-slate-500 font-mono">TAT = CT - AT | WT = TAT - BT</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <th class="px-4 py-3">Process</th>
+                <th class="px-4 py-3">Arrival (AT)</th>
+                <th class="px-4 py-3">Burst (BT)</th>
+                <th class="px-4 py-3">Priority</th>
+                <th class="px-4 py-3">Completion (CT)</th>
+                <th class="px-4 py-3">Turnaround (TAT)</th>
+                <th class="px-4 py-3">Waiting (WT)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              ${tableRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Calculation Breakdown -->
+      <div class="p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-900/60 text-xs text-slate-700 dark:text-slate-300 mb-8 space-y-2">
+        <h4 class="font-bold text-slate-900 dark:text-white text-sm">Formula Calculation Breakdown</h4>
+        <div class="font-mono text-xs space-y-1">
+          <p>• Total Waiting Time = ${result.rows.map((r) => r.wt).join(' + ')} = ${result.rows.reduce((sum, r) => sum + r.wt, 0)}</p>
+          <p>• Average Waiting Time = ${result.rows.reduce((sum, r) => sum + r.wt, 0)} / ${result.rows.length} = <strong class="text-amber-600 dark:text-amber-400">${fmt(result.avgWt)}</strong></p>
+          <p>• Total Turnaround Time = ${result.rows.map((r) => r.tat).join(' + ')} = ${result.rows.reduce((sum, r) => sum + r.tat, 0)}</p>
+          <p>• Average Turnaround Time = ${result.rows.reduce((sum, r) => sum + r.tat, 0)} / ${result.rows.length} = <strong class="text-emerald-600 dark:text-emerald-400">${fmt(result.avgTat)}</strong></p>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <button onclick="app.goTo('algorithm')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          ← Back
+        </button>
+        <button onclick="app.goTo('compare-setup')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+          Step 4: Configure Comparison →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// 5. Step 4: Configure Comparison Inputs
+function compareSetupView() {
+  const hasRR = state.comparisonAlgos.includes('rr');
+
+  return `
+    <div class="max-w-3xl mx-auto px-4 py-8 pop-in">
+      <div class="mb-6">
+        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 4 of 5</span>
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Comparison Inputs</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Each selected algorithm evaluates against your configured process workload. Adjust specific parameters below prior to running the comparative benchmark.
+        </p>
+      </div>
+
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm mb-6 space-y-6">
+        <div>
+          <h3 class="font-bold text-slate-900 dark:text-white text-sm mb-3">Algorithms Included in Comparison (${state.comparisonAlgos.length})</h3>
+          <div class="flex flex-wrap gap-2">
+            ${state.comparisonAlgos.map((k) => `
+              <span class="px-3 py-1 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">
+                ${escapeHtml(ALGORITHMS[k].name)}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+
+        ${hasRR ? `
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Quantum ($q$)</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Specify the time slice for Round Robin during comparative evaluation.</p>
+            </div>
+            <input type="number" min="1" value="${state.comparisonQuantums.rr || 2}" onchange="app.setComparisonQuantum('rr', this.value)"
+              class="w-24 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+        ` : ''}
+
+        <div class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          💡 <strong>Tip:</strong> In the next step, all selected algorithms will run on identical arrival times, burst times, and priorities to identify the optimal scheduling strategy.
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <button onclick="app.goTo('review')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          ← Back
+        </button>
+        <button onclick="app.goTo('comparison')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+          Step 5: Compare Algorithms →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// 6. Step 5: Compare Algorithms
+function comparisonView() {
+  const results = state.comparisonAlgos.map((algoKey) => {
+    const q = algoKey === 'rr' ? (state.comparisonQuantums.rr || state.quantum) : state.quantum;
+    const res = runScheduler(state.processes, algoKey, q);
+    return {
+      key: algoKey,
+      algo: ALGORITHMS[algoKey],
+      q,
+      ...res,
+    };
+  });
+
+  if (!results.length) {
+    return `<div class="p-8 text-center"><p>No algorithms selected for comparison.</p><button onclick="app.goTo('algorithm')" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg">Select Algorithms</button></div>`;
+  }
+
+  // Find best metrics (lowest is best)
+  const minWt = Math.min(...results.map((r) => r.avgWt));
+  const minTat = Math.min(...results.map((r) => r.avgTat));
+  const minIdle = Math.min(...results.map((r) => r.idle));
+
+  const bestWtAlgo = results.find((r) => r.avgWt === minWt);
+  const bestTatAlgo = results.find((r) => r.avgTat === minTat);
+  const bestIdleAlgo = results.find((r) => r.idle === minIdle);
+
+  // Maximum values for relative bar chart
+  const maxBarWt = Math.max(...results.map((r) => r.avgWt), 1);
+  const maxBarTat = Math.max(...results.map((r) => r.avgTat), 1);
+
+  // Table rows
+  const tableRows = results.map((r) => {
+    const isBestWt = r.avgWt === minWt;
+    const isBestTat = r.avgTat === minTat;
+    const isBestIdle = r.idle === minIdle;
+
+    return `
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors font-mono text-sm">
+        <td class="px-4 py-3.5 font-bold font-sans">
+          <div class="text-slate-900 dark:text-white font-semibold">${escapeHtml(r.algo.name)}</div>
+          <div class="text-xs text-slate-400 font-mono">${r.algo.type}${r.key === 'rr' ? ` (q=${r.q})` : ''}</div>
+        </td>
+        <td class="px-4 py-3.5">
+          <span class="font-bold ${isBestWt ? 'text-emerald-600 dark:text-emerald-400' : ''}">${fmt(r.avgWt)}</span>
+          ${isBestWt ? '<span class="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 uppercase">Best</span>' : ''}
+        </td>
+        <td class="px-4 py-3.5">
+          <span class="font-bold ${isBestTat ? 'text-emerald-600 dark:text-emerald-400' : ''}">${fmt(r.avgTat)}</span>
+          ${isBestTat ? '<span class="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 uppercase">Best</span>' : ''}
+        </td>
+        <td class="px-4 py-3.5">
+          <span class="font-bold ${isBestIdle ? 'text-emerald-600 dark:text-emerald-400' : ''}">${fmt(r.idle)}</span>
+          ${isBestIdle ? '<span class="ml-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 uppercase">Best</span>' : ''}
+        </td>
+        <td class="px-4 py-3.5">${r.makespan}</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Bar Charts
+  const barChartsHtml = results.map((r) => {
+    const wtPct = Math.max(8, (r.avgWt / maxBarWt) * 100);
+    const tatPct = Math.max(8, (r.avgTat / maxBarTat) * 100);
+    const isBest = r.avgWt === minWt;
+
+    return `
+      <div class="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+        <div class="flex justify-between items-center text-xs font-semibold">
+          <span class="${isBest ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-800 dark:text-slate-200'}">
+            ${escapeHtml(r.algo.short)}${r.key === 'rr' ? ` (q=${r.q})` : ''}
+          </span>
+          <span class="font-mono text-slate-500">WT: ${fmt(r.avgWt)} | TAT: ${fmt(r.avgTat)}</span>
+        </div>
+        <!-- Waiting Time Bar -->
+        <div class="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
+          <div class="bg-amber-500 h-full rounded-full transition-all duration-500" style="width: ${wtPct}%;"></div>
+        </div>
+        <!-- Turnaround Time Bar -->
+        <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
+          <div class="bg-emerald-500 h-full rounded-full transition-all duration-500" style="width: ${tatPct}%;"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Side-by-side Gantt cards
+  const ganttCards = results.map((r) => `
+    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h4 class="font-bold text-slate-900 dark:text-white text-sm">${escapeHtml(r.algo.name)}</h4>
+          <span class="text-xs text-slate-400 font-mono">${r.algo.type}${r.key === 'rr' ? ` (q=${r.q})` : ''}</span>
+        </div>
+        <div class="flex gap-2 text-xs font-mono">
+          <span class="px-2 py-1 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">Avg WT: ${fmt(r.avgWt)}</span>
+          <span class="px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">Avg TAT: ${fmt(r.avgTat)}</span>
+        </div>
+      </div>
+      ${renderGantt(r.gantt, { compact: true })}
+    </div>
+  `).join('');
+
+  return `
+    <div class="max-w-5xl mx-auto px-4 py-8 pop-in">
+      <div class="mb-6">
+        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 5 of 5</span>
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Compare Algorithms</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Comprehensive side-by-side performance review for your configured workload.</p>
+      </div>
+
+      <!-- Verdict Banner -->
+      <div class="p-5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200 dark:border-indigo-800 mb-6">
+        <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-1.5 mb-1">
+          <span>🏆</span> Scheduling Verdict
+        </h3>
+        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          <strong class="text-indigo-600 dark:text-indigo-400">${escapeHtml(bestWtAlgo.algo.name)}</strong> yielded the lowest average waiting time (<span class="font-mono font-bold">${fmt(minWt)}</span>),
+          <strong class="text-indigo-600 dark:text-indigo-400">${escapeHtml(bestTatAlgo.algo.name)}</strong> achieved the lowest average turnaround time (<span class="font-mono font-bold">${fmt(minTat)}</span>),
+          and <strong class="text-indigo-600 dark:text-indigo-400">${escapeHtml(bestIdleAlgo.algo.name)}</strong> minimized CPU idle time (<span class="font-mono font-bold">${fmt(minIdle)}</span>).
+        </p>
+      </div>
+
+      <!-- Comparison Summary Table -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mb-6">
+        <div class="p-4 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+          <h3 class="font-bold text-slate-900 dark:text-white text-sm">Performance Comparison Matrix</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                <th class="px-4 py-3">Algorithm</th>
+                <th class="px-4 py-3">Avg WT</th>
+                <th class="px-4 py-3">Avg TAT</th>
+                <th class="px-4 py-3">Idle Time</th>
+                <th class="px-4 py-3">Makespan</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              ${tableRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Visual Metric Comparison Bars -->
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-sm">Comparative Bar Chart</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Visual ranking of Average Waiting Time (<span class="text-amber-500 font-bold">Orange</span>) and Turnaround Time (<span class="text-emerald-500 font-bold">Green</span>).</p>
+          </div>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          ${barChartsHtml}
+        </div>
+      </div>
+
+      <!-- Individual Gantt Timelines -->
+      <div class="space-y-4 mb-8">
+        <h3 class="font-bold text-slate-900 dark:text-white text-sm">Gantt Charts Side-by-Side</h3>
+        <div class="grid gap-4">
+          ${ganttCards}
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center">
+        <button onclick="app.goTo('compare-setup')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          ← Back
+        </button>
+        <button onclick="app.goTo('end')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+          Finish Simulation →
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// 7. Complete Screen (The End)
+function endView() {
+  return `
+    <div class="max-w-2xl mx-auto px-4 py-16 text-center pop-in">
+      <div class="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-3xl shadow-xl shadow-indigo-500/20 mb-6">
+        🎉
+      </div>
+      <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Simulation Complete</span>
+      <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white mt-2">All Algorithms Evaluated</h2>
+      <p class="text-slate-600 dark:text-slate-300 text-sm sm:text-base mt-4 max-w-lg mx-auto leading-relaxed">
+        You have successfully explored process input configuration, algorithm scheduling, interactive Gantt playback, and side-by-side comparative analytics.
+      </p>
+
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+        <button onclick="app.resetAll()" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5">
+          🔄 Run Again (Reset Benchmark)
+        </button>
+        <button onclick="app.goTo('configure')" class="px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-colors">
+          ✏️ Modify Current Processes
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// Footer
+function footerView() {
+  return `
+    <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 py-6 bg-white/50 dark:bg-slate-900/50">
+      <div class="max-w-6xl mx-auto px-4 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p>Built with Pure Vanilla JS + Tailwind CSS · Reference project based on Operating Systems (CSE362) Lab Report</p>
+      </div>
+    </footer>
+  `;
+}
+
+// Main Render Function
+function renderApp() {
+  applyTheme();
+  const root = document.getElementById('app');
+  if (!root) return;
+
+  let viewHtml = '';
+  switch (state.view) {
+    case 'intro':
+      viewHtml = introView();
+      break;
+    case 'identity':
+      viewHtml = identityView();
+      break;
+    case 'configure':
+      viewHtml = configureView();
+      break;
+    case 'algorithm':
+      viewHtml = algorithmView();
+      break;
+    case 'review':
+      viewHtml = reviewView();
+      break;
+    case 'compare-setup':
+      viewHtml = compareSetupView();
+      break;
+    case 'comparison':
+      viewHtml = comparisonView();
+      break;
+    case 'end':
+      viewHtml = endView();
+      break;
+    default:
+      viewHtml = introView();
+  }
+
+  root.innerHTML = `
+    ${headerView()}
+    <main class="flex-1">
+      ${viewHtml}
+    </main>
+    ${footerView()}
+  `;
+}
+
+// Global Application Controller Object
+window.app = {
+  goTo(viewName) {
+    app.stopPlaybackTimer();
+    state.view = viewName;
+    state.validationErrors = [];
+    renderApp();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  },
+
+  toggleDark() {
+    state.darkMode = !state.darkMode;
+    localStorage.setItem('cpuDarkMode', String(state.darkMode));
+    renderApp();
+  },
+
+  loadPreset(key) {
+    if (!key || !PRESETS[key]) return;
+    state.processes = JSON.parse(JSON.stringify(PRESETS[key].processes));
+    state.validationErrors = [];
+    renderApp();
+  },
+
+  loadPresetAndReview(key) {
+    app.loadPreset(key);
+    app.goTo('review');
+  },
+
+  addProcess() {
+    const nextIdx = state.processes.length + 1;
+    let newId = `P${nextIdx}`;
+    let counter = nextIdx;
+    while (state.processes.some((p) => p.id === newId)) {
+      counter++;
+      newId = `P${counter}`;
+    }
+    state.processes.push({ id: newId, at: 0, bt: 4, priority: 2 });
+    state.validationErrors = [];
+    renderApp();
+  },
+
+  removeProcess(idx) {
+    if (state.processes.length <= 1) {
+      state.validationErrors = ['At least one process is required in the schedule.'];
+      renderApp();
+      return;
+    }
+    state.processes.splice(idx, 1);
+    state.validationErrors = [];
+    renderApp();
+  },
+
+  updateProcess(idx, field, value) {
+    if (!state.processes[idx]) return;
+    if (field === 'id') {
+      state.processes[idx].id = String(value).trim();
+    } else {
+      state.processes[idx][field] = Number(value);
+    }
+    state.validationErrors = validateProcesses(state.processes);
+    // Don't full re-render on each keystroke if focused, but re-validate
+    const errBox = document.getElementById('validationMsg');
+    if (errBox) {
+      errBox.innerHTML = state.validationErrors.map((e) => `<p class="text-rose-500 text-xs">${escapeHtml(e)}</p>`).join('');
+    }
+  },
+
+  validateAndContinue(targetView) {
+    const errs = validateProcesses(state.processes);
+    if (errs.length > 0) {
+      state.validationErrors = errs;
+      renderApp();
+      return;
+    }
+    state.validationErrors = [];
+    app.goTo(targetView);
+  },
+
+  selectAlgo(key) {
+    if (!ALGORITHMS[key]) return;
+    state.selectedAlgo = key;
+    renderApp();
+  },
+
+  setQuantum(val) {
+    state.quantum = Math.max(1, parseInt(val, 10) || 1);
+    renderApp();
+  },
+
+  setComparisonQuantum(algo, val) {
+    state.comparisonQuantums[algo] = Math.max(1, parseInt(val, 10) || 1);
+    renderApp();
+  },
+
+  toggleComparisonAlgo(key) {
+    const idx = state.comparisonAlgos.indexOf(key);
+    if (idx >= 0) {
+      if (state.comparisonAlgos.length <= 2) {
+        alert('At least two algorithms must be selected for comparison.');
+        return;
+      }
+      state.comparisonAlgos.splice(idx, 1);
+    } else {
+      state.comparisonAlgos.push(key);
+    }
+    renderApp();
+  },
+
+  selectAllComparisonAlgos() {
+    state.comparisonAlgos = Object.keys(ALGORITHMS);
+    renderApp();
+  },
+
+  // Timeline Playback Methods
+  togglePlay() {
+    if (state.playback.isPlaying) {
+      app.stopPlaybackTimer();
+    } else {
+      state.playback.isPlaying = true;
+      const res = runScheduler(state.processes, state.selectedAlgo, state.quantum);
+      if (state.playback.currentTime >= res.makespan) {
+        state.playback.currentTime = 0;
+      }
+      renderApp();
+      const interval = 1000 / state.playback.speed;
+      state.playback.timerId = setInterval(() => {
+        const nextT = state.playback.currentTime + 1;
+        if (nextT > res.makespan) {
+          app.stopPlaybackTimer();
+          renderApp();
+        } else {
+          state.playback.currentTime = nextT;
+          renderApp();
+        }
+      }, interval);
+    }
+  },
+
+  stepForward() {
+    app.stopPlaybackTimer();
+    const res = runScheduler(state.processes, state.selectedAlgo, state.quantum);
+    if (state.playback.currentTime < res.makespan) {
+      state.playback.currentTime += 1;
+      renderApp();
+    }
+  },
+
+  stepBack() {
+    app.stopPlaybackTimer();
+    if (state.playback.currentTime > 0) {
+      state.playback.currentTime -= 1;
+      renderApp();
+    }
+  },
+
+  resetPlayback() {
+    app.stopPlaybackTimer();
+    state.playback.currentTime = 0;
+    renderApp();
+  },
+
+  setPlaybackSpeed(speed) {
+    state.playback.speed = speed;
+    if (state.playback.isPlaying) {
+      app.togglePlay();
+      app.togglePlay();
+    } else {
+      renderApp();
+    }
+  },
+
+  stopPlaybackTimer() {
+    if (state.playback.timerId) {
+      clearInterval(state.playback.timerId);
+      state.playback.timerId = null;
+    }
+    state.playback.isPlaying = false;
+  },
+
+  resetAll() {
+    app.stopPlaybackTimer();
+    state.processes = JSON.parse(JSON.stringify(PRESETS.report.processes));
+    state.selectedAlgo = 'fcfs';
+    state.quantum = 2;
+    state.comparisonAlgos = ['fcfs', 'sjf', 'rr', 'priority', 'srtf', 'ljf'];
+    state.comparisonQuantums = { rr: 2 };
+    state.validationErrors = [];
+    state.playback.currentTime = 0;
+    app.goTo('configure');
+  },
+};
+
+// Initial boot
+document.addEventListener('DOMContentLoaded', () => {
+  renderApp();
+});
+if (document.readyState === 'interactive' || document.readyState === 'complete') {
+  renderApp();
+}
