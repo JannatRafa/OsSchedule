@@ -484,31 +484,54 @@ function configureView() {
 
   return `
     <div class="max-w-4xl mx-auto px-4 py-6 sm:py-8">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 1 of 5</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Processes</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Set Arrival Time (AT &ge; 0), Burst Time (BT &ge; 1), and Priority (&ge; 1, lower number = higher priority).
-          </p>
-        </div>
-
-        <div class="flex items-center gap-2 flex-wrap">
-          <select onchange="app.loadPreset(this.value)" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/20">
-            <option value="">Load Preset Workload...</option>
-            ${Object.entries(PRESETS).map(([k, v]) => `<option value="${k}">${escapeHtml(v.name)}</option>`).join('')}
-          </select>
-          <button onclick="app.addProcess()" class="btn-action px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm">
-            ${ICONS.plus}
-            <span>Add Process</span>
-          </button>
-        </div>
+      <div class="mb-5">
+        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 1 of 5</span>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Processes</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Set Arrival Time (AT &ge; 0), Burst Time (BT &ge; 1), and Priority (&ge; 1, lower number = higher priority).
+        </p>
       </div>
 
       ${errorsHtml}
 
-      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mb-6">
-        <div class="overflow-x-auto">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50 rounded-t-2xl">
+          <div class="flex items-center gap-2.5">
+            <h3 class="font-bold text-slate-900 dark:text-white text-sm">Process List</h3>
+            <span id="processCountBadge" class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">${state.processes.length} processes</span>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div class="relative w-full sm:w-52" id="presetDropdown">
+              <button id="presetBtn" onclick="app.togglePresetMenu(event)" aria-haspopup="listbox" aria-expanded="false"
+                class="btn-action w-full h-9 px-3 rounded-xl bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold flex items-center gap-2 outline-none focus:ring-2 focus:ring-indigo-500/30">
+                <svg class="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" /></svg>
+                <span>Load Preset</span>
+                <svg id="presetChevron" class="w-3.5 h-3.5 ml-auto text-slate-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <div id="presetMenu" role="listbox"
+                class="hidden absolute left-0 right-0 sm:left-auto sm:right-0 sm:w-80 top-[calc(100%+8px)] z-30 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl shadow-slate-900/10 overflow-hidden">
+                <div class="px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800">Choose a workload</div>
+                <div class="p-1.5">
+                  ${Object.entries(PRESETS).map(([k, v]) => `
+                    <button onclick="app.loadPreset('${k}')" role="option"
+                      class="w-full text-left px-3 py-2.5 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors group">
+                      <span class="flex items-center justify-between gap-2">
+                        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 group-hover:text-indigo-700 dark:group-hover:text-indigo-300">${escapeHtml(v.name)}</span>
+                        <span class="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 whitespace-nowrap">${v.processes.length} procs</span>
+                      </span>
+                      <span class="block text-[11px] font-mono text-slate-400 mt-0.5 truncate">${v.processes.map((p) => `${escapeHtml(p.id)}(${p.at},${p.bt})`).join(' · ')}</span>
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+            <button onclick="app.addProcess()" class="btn-action w-full sm:w-auto h-9 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap">
+              ${ICONS.plus}
+              <span>Add Process</span>
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto rounded-b-2xl">
           <table class="w-full text-left border-collapse min-w-[520px]">
             <thead>
               <tr class="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -1211,6 +1234,8 @@ function renderConfigureTableOnly() {
   const tbody = document.getElementById('processTableBody');
   if (tbody) {
     tbody.innerHTML = renderProcessRows();
+    const badge = document.getElementById('processCountBadge');
+    if (badge) badge.textContent = `${state.processes.length} processes`;
   } else {
     renderApp();
   }
@@ -1286,10 +1311,36 @@ window.app = {
     }, 280);
   },
 
+  togglePresetMenu(event) {
+    if (event) event.stopPropagation();
+    const menu = document.getElementById('presetMenu');
+    const btn = document.getElementById('presetBtn');
+    const chevron = document.getElementById('presetChevron');
+    if (!menu) return;
+    const isHidden = menu.classList.contains('hidden');
+    if (isHidden) {
+      menu.classList.remove('hidden');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      if (chevron) chevron.classList.add('rotate-180');
+    } else {
+      app.closePresetMenu();
+    }
+  },
+
+  closePresetMenu() {
+    const menu = document.getElementById('presetMenu');
+    const btn = document.getElementById('presetBtn');
+    const chevron = document.getElementById('presetChevron');
+    if (menu) menu.classList.add('hidden');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (chevron) chevron.classList.remove('rotate-180');
+  },
+
   loadPreset(key) {
     if (!key || !PRESETS[key]) return;
     state.processes = JSON.parse(JSON.stringify(PRESETS[key].processes));
     state.validationErrors = [];
+    app.closePresetMenu();
     renderConfigureTableOnly();
   },
 
@@ -1557,6 +1608,17 @@ window.app = {
 // Initial boot
 document.addEventListener('DOMContentLoaded', () => {
   renderApp();
+});
+// Close preset dropdown on outside click / Escape
+document.addEventListener('click', (e) => {
+  const dropdown = document.getElementById('presetDropdown');
+  const menu = document.getElementById('presetMenu');
+  if (menu && !menu.classList.contains('hidden') && dropdown && !dropdown.contains(e.target)) {
+    if (window.app && window.app.closePresetMenu) window.app.closePresetMenu();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && window.app && window.app.closePresetMenu) window.app.closePresetMenu();
 });
 if (document.readyState === 'interactive' || document.readyState === 'complete') {
   renderApp();
