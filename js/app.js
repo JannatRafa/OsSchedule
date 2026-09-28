@@ -1,6 +1,6 @@
 // CPU Scheduling Visualizer - Main Application
 // Pure vanilla JS + Tailwind CSS (ES Module)
-// Reference implementation with step playback, comparison charts, and academic presets.
+// Reference implementation with smooth animations, step playback, comparison charts, and academic presets.
 
 import { runScheduler, validateProcesses } from './scheduler.js';
 
@@ -101,6 +101,7 @@ const state = {
   comparisonAlgos: ['fcfs', 'sjf', 'rr', 'priority', 'srtf', 'ljf'],
   comparisonQuantums: { rr: 2 },
   validationErrors: [],
+  newlyAddedId: null,
   darkMode: localStorage.getItem('cpuDarkMode') === 'true',
   playback: {
     currentTime: 0,
@@ -148,14 +149,6 @@ function colorForId(id) {
   return PALETTE[hash % PALETTE.length];
 }
 
-function hexToRgba(hex, alpha) {
-  const c = hex.replace('#', '');
-  const r = parseInt(c.substring(0, 2), 16);
-  const g = parseInt(c.substring(2, 4), 16);
-  const b = parseInt(c.substring(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
 // Gantt Chart Renderer
 function renderGantt(gantt, options = {}) {
   const { compact = false, maxTime = null, highlightTime = null } = options;
@@ -166,7 +159,7 @@ function renderGantt(gantt, options = {}) {
   const totalEnd = maxTime || gantt[gantt.length - 1].end;
   if (totalEnd === 0) return '';
 
-  const segmentsHtml = gantt.map((seg, i) => {
+  const segmentsHtml = gantt.map((seg) => {
     const isIdle = seg.id === 'IDLE';
     const dur = seg.end - seg.start;
     const pctStart = (seg.start / totalEnd) * 100;
@@ -175,7 +168,8 @@ function renderGantt(gantt, options = {}) {
     const isCurrent = highlightTime !== null && highlightTime >= seg.start && highlightTime < seg.end;
 
     return `
-      <div class="gantt-bar group absolute top-0 bottom-0 flex flex-col justify-center items-center transition-all ${isCurrent ? 'ring-2 ring-amber-400 z-10 scale-[1.02]' : ''}"
+      <div data-start="${seg.start}" data-end="${seg.end}"
+           class="gantt-bar group absolute top-0 bottom-0 flex flex-col justify-center items-center ${isCurrent ? 'ring-2 ring-amber-400 z-10 scale-[1.02]' : ''}"
            style="left: ${pctStart}%; width: ${pctWidth}%; background-color: ${color}; ${isIdle ? 'background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.15) 0 6px, transparent 6px 12px);' : ''}">
         
         <!-- Tooltip -->
@@ -211,14 +205,14 @@ function renderGantt(gantt, options = {}) {
 
   // Current playback time cursor
   const cursorHtml = highlightTime !== null ? `
-    <div class="absolute top-0 bottom-0 w-0.5 bg-amber-500 z-20 pointer-events-none transition-all duration-150" style="left: ${(highlightTime / totalEnd) * 100}%">
-      <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-500 rotate-45"></div>
-      <div class="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 font-mono text-[9px] font-bold px-1 rounded">t=${highlightTime}</div>
+    <div id="timelineCursor" class="cursor-timeline absolute top-0 bottom-0 w-0.5 bg-amber-500 z-20 pointer-events-none" style="left: ${(highlightTime / totalEnd) * 100}%">
+      <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-2 h-2 bg-amber-500 rotate-45 shadow"></div>
+      <div id="cursorLabel" class="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-amber-500 text-slate-950 font-mono text-[9px] font-bold px-1 rounded shadow whitespace-nowrap">t=${highlightTime}</div>
     </div>
   ` : '';
 
   return `
-    <div class="relative w-full pt-1 pb-6 select-none">
+    <div class="relative w-full pt-1 pb-6 select-none" id="ganttChartContainer" data-total-end="${totalEnd}">
       <div class="relative ${compact ? 'h-10' : 'h-16'} rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-inner">
         ${segmentsHtml}
         ${cursorHtml}
@@ -239,7 +233,7 @@ function headerView() {
     const isCompleted = idx < currentIdx;
     return `
       <button onclick="app.goTo('${s.id}')"
-        class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+        class="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
           isActive
             ? 'bg-indigo-600 text-white shadow-sm font-semibold'
             : isCompleted
@@ -278,7 +272,7 @@ function headerView() {
         </nav>
 
         <button onclick="app.toggleDark()"
-          class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          class="btn-tactile p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           title="Toggle Dark Mode">
           ${state.darkMode ? '🌙' : '☀️'}
         </button>
@@ -290,7 +284,7 @@ function headerView() {
 // 0. Intro Screen
 function introView() {
   return `
-    <div class="max-w-4xl mx-auto px-4 py-10 pop-in">
+    <div class="max-w-4xl mx-auto px-4 py-10 view-enter">
       <div class="text-center mb-10">
         <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-4 border border-indigo-200/50 dark:border-indigo-800/50">
           <span>⚡ Operating Systems Lab Project</span>
@@ -331,14 +325,14 @@ function introView() {
       </div>
 
       <div class="flex flex-wrap items-center justify-center gap-3">
-        <button onclick="app.goTo('identity')" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5 flex items-center gap-2">
+        <button onclick="app.goTo('identity')" class="btn-tactile px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5 flex items-center gap-2">
           <span>Start Simulation</span>
           <span>→</span>
         </button>
-        <button onclick="app.loadPresetAndReview('report')" class="px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-all">
+        <button onclick="app.loadPresetAndReview('report')" class="btn-tactile px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-all">
           Load Report Benchmark (Table 6.1)
         </button>
-        <button onclick="app.goTo('identity')" class="px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm">
+        <button onclick="app.goTo('identity')" class="btn-tactile px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm">
           Course & Group Details
         </button>
       </div>
@@ -349,7 +343,7 @@ function introView() {
 // 1. Identity Screen (Course & Group Details)
 function identityView() {
   return `
-    <div class="max-w-3xl mx-auto px-4 py-8 pop-in">
+    <div class="max-w-3xl mx-auto px-4 py-8 view-enter">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Project Identity</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Course & Group Details</h2>
@@ -397,10 +391,10 @@ function identityView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('intro')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button onclick="app.goTo('intro')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           ← Back
         </button>
-        <button onclick="app.goTo('configure')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+        <button onclick="app.goTo('configure')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
           Step 1: Configure Processes →
         </button>
       </div>
@@ -408,36 +402,42 @@ function identityView() {
   `;
 }
 
+// Render the process rows for the configure table
+function renderProcessRows() {
+  return state.processes.map((p, i) => {
+    const isNew = state.newlyAddedId === p.id;
+    return `
+      <tr data-process-idx="${i}" class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors ${isNew ? 'row-enter' : ''}">
+        <td class="px-4 py-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+          <input type="text" value="${escapeHtml(p.id)}" onchange="app.updateProcess(${i}, 'id', this.value)"
+            class="w-20 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-sm transition-colors">
+        </td>
+        <td class="px-4 py-3">
+          <input type="number" min="0" value="${p.at}" onchange="app.updateProcess(${i}, 'at', this.value)"
+            class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all">
+        </td>
+        <td class="px-4 py-3">
+          <input type="number" min="1" value="${p.bt}" onchange="app.updateProcess(${i}, 'bt', this.value)"
+            class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all">
+        </td>
+        <td class="px-4 py-3">
+          <input type="number" min="1" value="${p.priority}" onchange="app.updateProcess(${i}, 'priority', this.value)"
+            class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all">
+        </td>
+        <td class="px-4 py-3 text-right">
+          <button onclick="app.removeProcess(${i})" class="btn-tactile text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all hover:scale-110 active:scale-95" title="Delete Process">
+            <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
 // 2. Step 1: Configure Processes
 function configureView() {
-  const rows = state.processes.map((p, i) => `
-    <tr class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-      <td class="px-4 py-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-        <input type="text" value="${escapeHtml(p.id)}" onchange="app.updateProcess(${i}, 'id', this.value)"
-          class="w-20 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-sm">
-      </td>
-      <td class="px-4 py-3">
-        <input type="number" min="0" value="${p.at}" onchange="app.updateProcess(${i}, 'at', this.value)"
-          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
-      </td>
-      <td class="px-4 py-3">
-        <input type="number" min="1" value="${p.bt}" onchange="app.updateProcess(${i}, 'bt', this.value)"
-          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
-      </td>
-      <td class="px-4 py-3">
-        <input type="number" min="1" value="${p.priority}" onchange="app.updateProcess(${i}, 'priority', this.value)"
-          class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
-      </td>
-      <td class="px-4 py-3 text-right">
-        <button onclick="app.removeProcess(${i})" class="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors" title="Delete Process">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-        </button>
-      </td>
-    </tr>
-  `).join('');
-
   const errorsHtml = state.validationErrors.length ? `
-    <div class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
+    <div id="validationContainer" class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
       <div class="font-bold flex items-center gap-1.5 text-sm">
         <span>⚠️</span> Please fix the following configuration errors:
       </div>
@@ -445,23 +445,25 @@ function configureView() {
         ${state.validationErrors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
       </ul>
     </div>
-  ` : '';
+  ` : '<div id="validationContainer"></div>';
 
   return `
-    <div class="max-w-4xl mx-auto px-4 py-8 pop-in">
+    <div class="max-w-4xl mx-auto px-4 py-8 view-enter">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 1 of 5</span>
           <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Processes</h2>
-          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Set Arrival Time (AT $\\ge 0$), Burst Time (BT $\\ge 1$), and Priority ($\\ge 1$, lower = higher priority).</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Set Arrival Time (AT &ge; 0), Burst Time (BT &ge; 1), and Priority (&ge; 1, lower number = higher priority).
+          </p>
         </div>
 
         <div class="flex items-center gap-2 flex-wrap">
-          <select onchange="app.loadPreset(this.value)" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/20">
+          <select onchange="app.loadPreset(this.value)" class="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all">
             <option value="">Load Preset Workload...</option>
             ${Object.entries(PRESETS).map(([k, v]) => `<option value="${k}">${escapeHtml(v.name)}</option>`).join('')}
           </select>
-          <button onclick="app.addProcess()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm">
+          <button onclick="app.addProcess()" class="btn-tactile px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-sm">
             <span>+ Add Process</span>
           </button>
         </div>
@@ -481,18 +483,18 @@ function configureView() {
                 <th class="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-sm">
-              ${rows}
+            <tbody id="processTableBody" class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-sm">
+              ${renderProcessRows()}
             </tbody>
           </table>
         </div>
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('identity')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button onclick="app.goTo('identity')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           ← Back
         </button>
-        <button onclick="app.validateAndContinue('algorithm')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+        <button onclick="app.validateAndContinue('algorithm')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
           Step 2: Choose Algorithm →
         </button>
       </div>
@@ -508,7 +510,7 @@ function algorithmView() {
 
     return `
       <div onclick="app.selectAlgo('${key}')"
-        class="cursor-pointer p-5 rounded-2xl border-2 transition-all ${
+        class="btn-tactile cursor-pointer p-5 rounded-2xl border-2 transition-all ${
           isSelected
             ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/20'
             : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
@@ -546,7 +548,7 @@ function algorithmView() {
   const isRR = state.selectedAlgo === 'rr' || state.comparisonAlgos.includes('rr');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8 pop-in">
+    <div class="max-w-5xl mx-auto px-4 py-8 view-enter">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 2 of 5</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Choose An Algorithm</h2>
@@ -563,7 +565,7 @@ function algorithmView() {
       ${isRR ? `
         <div class="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Time Quantum ($q$)</h4>
+            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Time Quantum (q)</h4>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Maximum CPU time allocated per process per round.</p>
           </div>
           <div class="flex items-center gap-2">
@@ -590,10 +592,10 @@ function algorithmView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('configure')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button onclick="app.goTo('configure')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           ← Back
         </button>
-        <button onclick="app.validateAndContinue('review')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+        <button onclick="app.validateAndContinue('review')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
           Step 3: Review The Schedule →
         </button>
       </div>
@@ -631,7 +633,7 @@ function reviewView() {
   }).join('');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8 pop-in">
+    <div class="max-w-5xl mx-auto px-4 py-8 view-enter">
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 3 of 5</span>
@@ -643,7 +645,7 @@ function reviewView() {
           </div>
         </div>
 
-        <button onclick="app.resetPlayback()" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">
+        <button onclick="app.resetPlayback()" class="btn-tactile px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800">
           Reset Playback
         </button>
       </div>
@@ -653,12 +655,12 @@ function reviewView() {
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
           <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Average Waiting Time</span>
           <p class="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">${fmt(result.avgWt)}</p>
-          <span class="text-[10px] text-slate-400 font-mono">avg WT = ΣWT / N</span>
+          <span class="text-[10px] text-slate-400 font-mono">avg WT = &Sigma;WT / N</span>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
           <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Average Turnaround</span>
           <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">${fmt(result.avgTat)}</p>
-          <span class="text-[10px] text-slate-400 font-mono">avg TAT = ΣTAT / N</span>
+          <span class="text-[10px] text-slate-400 font-mono">avg TAT = &Sigma;TAT / N</span>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
           <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Makespan</span>
@@ -684,16 +686,16 @@ function reviewView() {
         <!-- Interactive Playback Toolbar -->
         <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-2">
-            <button onclick="app.stepBack()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Back (t-1)">
+            <button onclick="app.stepBack()" class="btn-tactile p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Back (t-1)">
               ⏮️
             </button>
-            <button onclick="app.togglePlay()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5">
+            <button id="playbackPlayBtn" onclick="app.togglePlay()" class="btn-tactile px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all shadow-sm flex items-center gap-1.5">
               <span>${state.playback.isPlaying ? '⏸️ Pause' : '▶️ Play Animation'}</span>
             </button>
-            <button onclick="app.stepForward()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Forward (t+1)">
+            <button onclick="app.stepForward()" class="btn-tactile p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Step Forward (t+1)">
               ⏭️
             </button>
-            <button onclick="app.resetPlayback()" class="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-1">
+            <button onclick="app.resetPlayback()" class="btn-tactile text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 px-2 py-1">
               Reset
             </button>
           </div>
@@ -703,7 +705,7 @@ function reviewView() {
             <span class="text-slate-400 font-medium">Speed:</span>
             ${[0.5, 1, 2].map((s) => `
               <button onclick="app.setPlaybackSpeed(${s})"
-                class="px-2 py-1 rounded text-xs font-semibold ${
+                class="btn-tactile px-2 py-1 rounded text-xs font-semibold ${
                   state.playback.speed === s
                     ? 'bg-indigo-600 text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -715,8 +717,8 @@ function reviewView() {
 
           <!-- Current Clock State -->
           <div class="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-xs flex items-center gap-3">
-            <div>Clock: <span class="font-bold text-indigo-600 dark:text-indigo-400">t = ${currentT} / ${totalMakespan}</span></div>
-            <div>Active: <span class="font-bold text-emerald-600 dark:text-emerald-400">${activeLabel}</span></div>
+            <div>Clock: <span id="playbackClockDisplay" class="font-bold text-indigo-600 dark:text-indigo-400">t = ${currentT} / ${totalMakespan}</span></div>
+            <div>Active: <span id="playbackActiveDisplay" class="font-bold text-emerald-600 dark:text-emerald-400">${activeLabel}</span></div>
           </div>
         </div>
       </div>
@@ -759,10 +761,10 @@ function reviewView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('algorithm')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button onclick="app.goTo('algorithm')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           ← Back
         </button>
-        <button onclick="app.goTo('compare-setup')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+        <button onclick="app.goTo('compare-setup')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
           Step 4: Configure Comparison →
         </button>
       </div>
@@ -775,7 +777,7 @@ function compareSetupView() {
   const hasRR = state.comparisonAlgos.includes('rr');
 
   return `
-    <div class="max-w-3xl mx-auto px-4 py-8 pop-in">
+    <div class="max-w-3xl mx-auto px-4 py-8 view-enter">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 4 of 5</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Comparison Inputs</h2>
@@ -799,7 +801,7 @@ function compareSetupView() {
         ${hasRR ? `
           <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Quantum ($q$)</h4>
+              <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Quantum (q)</h4>
               <p class="text-xs text-slate-500 dark:text-slate-400">Specify the time slice for Round Robin during comparative evaluation.</p>
             </div>
             <input type="number" min="1" value="${state.comparisonQuantums.rr || 2}" onchange="app.setComparisonQuantum('rr', this.value)"
@@ -813,10 +815,10 @@ function compareSetupView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('review')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button onclick="app.goTo('review')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           ← Back
         </button>
-        <button onclick="app.goTo('comparison')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+        <button onclick="app.goTo('comparison')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
           Step 5: Compare Algorithms →
         </button>
       </div>
@@ -927,7 +929,7 @@ function comparisonView() {
   `).join('');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8 pop-in">
+    <div class="max-w-5xl mx-auto px-4 py-8 view-enter">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 5 of 5</span>
         <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Compare Algorithms</h2>
@@ -991,10 +993,10 @@ function comparisonView() {
       </div>
 
       <div class="flex justify-between items-center">
-        <button onclick="app.goTo('compare-setup')" class="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+        <button onclick="app.goTo('compare-setup')" class="btn-tactile px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           ← Back
         </button>
-        <button onclick="app.goTo('end')" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
+        <button onclick="app.goTo('end')" class="btn-tactile px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 transition-all hover:-translate-y-0.5">
           Finish Simulation →
         </button>
       </div>
@@ -1005,7 +1007,7 @@ function comparisonView() {
 // 7. Complete Screen (The End)
 function endView() {
   return `
-    <div class="max-w-2xl mx-auto px-4 py-16 text-center pop-in">
+    <div class="max-w-2xl mx-auto px-4 py-16 text-center view-enter">
       <div class="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-3xl shadow-xl shadow-indigo-500/20 mb-6">
         🎉
       </div>
@@ -1016,10 +1018,10 @@ function endView() {
       </p>
 
       <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <button onclick="app.resetAll()" class="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5">
+        <button onclick="app.resetAll()" class="btn-tactile px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5">
           🔄 Run Again (Reset Benchmark)
         </button>
-        <button onclick="app.goTo('configure')" class="px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-colors">
+        <button onclick="app.goTo('configure')" class="btn-tactile px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 transition-colors">
           ✏️ Modify Current Processes
         </button>
       </div>
@@ -1083,12 +1085,64 @@ function renderApp() {
   `;
 }
 
+// Selective re-render of configure table to avoid whole-page flashes
+function renderConfigureTableOnly() {
+  const tbody = document.getElementById('processTableBody');
+  if (tbody) {
+    tbody.innerHTML = renderProcessRows();
+  } else {
+    renderApp();
+  }
+}
+
+// Smooth playback display updater without recreating DOM trees
+function updatePlaybackTick() {
+  const res = runScheduler(state.processes, state.selectedAlgo, state.quantum);
+  const currentT = state.playback.currentTime;
+  const totalMakespan = res.makespan;
+  const activeSeg = res.gantt.find((s) => currentT >= s.start && currentT < s.end);
+  const activeLabel = activeSeg ? (activeSeg.id === 'IDLE' ? 'CPU IDLE' : activeSeg.id) : (currentT >= totalMakespan ? 'Execution Completed' : 'Waiting');
+
+  const cursorEl = document.getElementById('timelineCursor');
+  if (cursorEl) {
+    cursorEl.style.left = `${(currentT / totalMakespan) * 100}%`;
+  }
+  const cursorLabel = document.getElementById('cursorLabel');
+  if (cursorLabel) {
+    cursorLabel.textContent = `t=${currentT}`;
+  }
+  const clockEl = document.getElementById('playbackClockDisplay');
+  if (clockEl) {
+    clockEl.textContent = `t = ${currentT} / ${totalMakespan}`;
+  }
+  const activeEl = document.getElementById('playbackActiveDisplay');
+  if (activeEl) {
+    activeEl.textContent = activeLabel;
+  }
+  const playBtn = document.getElementById('playbackPlayBtn');
+  if (playBtn) {
+    playBtn.innerHTML = `<span>${state.playback.isPlaying ? '⏸️ Pause' : '▶️ Play Animation'}</span>`;
+  }
+
+  // Highlight active gantt segment
+  document.querySelectorAll('.gantt-bar').forEach((bar) => {
+    const sStart = Number(bar.dataset.start);
+    const sEnd = Number(bar.dataset.end);
+    if (currentT >= sStart && currentT < sEnd) {
+      bar.classList.add('ring-2', 'ring-amber-400', 'z-10', 'scale-[1.02]');
+    } else {
+      bar.classList.remove('ring-2', 'ring-amber-400', 'z-10', 'scale-[1.02]');
+    }
+  });
+}
+
 // Global Application Controller Object
 window.app = {
   goTo(viewName) {
     app.stopPlaybackTimer();
     state.view = viewName;
     state.validationErrors = [];
+    state.newlyAddedId = null;
     renderApp();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   },
@@ -1103,11 +1157,15 @@ window.app = {
     if (!key || !PRESETS[key]) return;
     state.processes = JSON.parse(JSON.stringify(PRESETS[key].processes));
     state.validationErrors = [];
-    renderApp();
+    state.newlyAddedId = null;
+    renderConfigureTableOnly();
   },
 
   loadPresetAndReview(key) {
-    app.loadPreset(key);
+    if (key && PRESETS[key]) {
+      state.processes = JSON.parse(JSON.stringify(PRESETS[key].processes));
+      state.validationErrors = [];
+    }
     app.goTo('review');
   },
 
@@ -1121,18 +1179,44 @@ window.app = {
     }
     state.processes.push({ id: newId, at: 0, bt: 4, priority: 2 });
     state.validationErrors = [];
-    renderApp();
+    state.newlyAddedId = newId;
+    renderConfigureTableOnly();
   },
 
   removeProcess(idx) {
     if (state.processes.length <= 1) {
       state.validationErrors = ['At least one process is required in the schedule.'];
-      renderApp();
+      const valContainer = document.getElementById('validationContainer');
+      if (valContainer) {
+        valContainer.innerHTML = `
+          <div class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-sm">
+              <span>⚠️</span> Please fix the following configuration errors:
+            </div>
+            <ul class="list-disc list-inside">
+              <li>At least one process is required in the schedule.</li>
+            </ul>
+          </div>
+        `;
+      }
       return;
     }
-    state.processes.splice(idx, 1);
-    state.validationErrors = [];
-    renderApp();
+
+    const rowEl = document.querySelector(`tr[data-process-idx="${idx}"]`);
+    if (rowEl) {
+      rowEl.classList.add('row-exit');
+      setTimeout(() => {
+        state.processes.splice(idx, 1);
+        state.newlyAddedId = null;
+        state.validationErrors = [];
+        renderConfigureTableOnly();
+      }, 200);
+    } else {
+      state.processes.splice(idx, 1);
+      state.newlyAddedId = null;
+      state.validationErrors = [];
+      renderConfigureTableOnly();
+    }
   },
 
   updateProcess(idx, field, value) {
@@ -1143,10 +1227,22 @@ window.app = {
       state.processes[idx][field] = Number(value);
     }
     state.validationErrors = validateProcesses(state.processes);
-    // Don't full re-render on each keystroke if focused, but re-validate
-    const errBox = document.getElementById('validationMsg');
-    if (errBox) {
-      errBox.innerHTML = state.validationErrors.map((e) => `<p class="text-rose-500 text-xs">${escapeHtml(e)}</p>`).join('');
+    const valContainer = document.getElementById('validationContainer');
+    if (valContainer) {
+      if (state.validationErrors.length > 0) {
+        valContainer.innerHTML = `
+          <div class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-sm">
+              <span>⚠️</span> Please fix the following configuration errors:
+            </div>
+            <ul class="list-disc list-inside">
+              ${state.validationErrors.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      } else {
+        valContainer.innerHTML = '';
+      }
     }
   },
 
@@ -1200,22 +1296,24 @@ window.app = {
   togglePlay() {
     if (state.playback.isPlaying) {
       app.stopPlaybackTimer();
+      updatePlaybackTick();
     } else {
-      state.playback.isPlaying = true;
       const res = runScheduler(state.processes, state.selectedAlgo, state.quantum);
       if (state.playback.currentTime >= res.makespan) {
         state.playback.currentTime = 0;
       }
-      renderApp();
+      state.playback.isPlaying = true;
+      updatePlaybackTick();
+
       const interval = 1000 / state.playback.speed;
       state.playback.timerId = setInterval(() => {
         const nextT = state.playback.currentTime + 1;
         if (nextT > res.makespan) {
           app.stopPlaybackTimer();
-          renderApp();
+          updatePlaybackTick();
         } else {
           state.playback.currentTime = nextT;
-          renderApp();
+          updatePlaybackTick();
         }
       }, interval);
     }
@@ -1226,7 +1324,7 @@ window.app = {
     const res = runScheduler(state.processes, state.selectedAlgo, state.quantum);
     if (state.playback.currentTime < res.makespan) {
       state.playback.currentTime += 1;
-      renderApp();
+      updatePlaybackTick();
     }
   },
 
@@ -1234,20 +1332,20 @@ window.app = {
     app.stopPlaybackTimer();
     if (state.playback.currentTime > 0) {
       state.playback.currentTime -= 1;
-      renderApp();
+      updatePlaybackTick();
     }
   },
 
   resetPlayback() {
     app.stopPlaybackTimer();
     state.playback.currentTime = 0;
-    renderApp();
+    updatePlaybackTick();
   },
 
   setPlaybackSpeed(speed) {
     state.playback.speed = speed;
     if (state.playback.isPlaying) {
-      app.togglePlay();
+      app.stopPlaybackTimer();
       app.togglePlay();
     } else {
       renderApp();
