@@ -70,7 +70,7 @@ const ALGORITHMS = {
 
 const PRESETS = {
   report: {
-    name: 'Report Benchmark (Table 6.1)',
+    name: 'Report Benchmark',
     processes: [
       { id: 'P1', at: 0, bt: 5, priority: 2 },
       { id: 'P2', at: 1, bt: 3, priority: 1 },
@@ -287,7 +287,7 @@ function headerView() {
           </div>
           <div>
             <h1 class="text-xs sm:text-sm font-bold leading-tight text-slate-900 dark:text-white">CPU Scheduling Visualizer</h1>
-            <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">CSE362 Lab Project</p>
+            <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">CSEXXX Lab Project</p>
           </div>
         </div>
 
@@ -364,7 +364,7 @@ function introView() {
           ${ICONS.arrowRight}
         </button>
         <button onclick="app.loadPresetAndReview('report')" class="btn-action w-full sm:w-auto px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 text-center">
-          Load Report Benchmark (Table 6.1)
+          Load Report Benchmark
         </button>
         <button onclick="app.goTo('identity')" class="btn-action w-full sm:w-auto px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm flex items-center justify-center gap-1.5">
           ${ICONS.academic}
@@ -389,7 +389,7 @@ function identityView() {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
           <div>
             <span class="text-xs uppercase font-semibold text-slate-400">Course Code</span>
-            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">CSE362 (Operating Systems)</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">CSEXXX (Operating Systems)</p>
           </div>
           <div>
             <span class="text-xs uppercase font-semibold text-slate-400">Section</span>
@@ -1155,7 +1155,7 @@ function footerView() {
   return `
     <footer class="mt-auto border-t border-slate-200 dark:border-slate-800 py-6 bg-white/50 dark:bg-slate-900/50">
       <div class="max-w-6xl mx-auto px-4 text-center text-xs text-slate-500 dark:text-slate-400">
-        <p>Built with Pure Vanilla JS + Tailwind CSS · Reference project based on Operating Systems (CSE362) Lab Report</p>
+        <p>Built with Pure Vanilla JS + Tailwind CSS · Reference project based on Operating Systems (CSEXXX) Lab Report</p>
       </div>
     </footer>
   `;
