@@ -1,13 +1,13 @@
 // CPU Scheduling Visualizer - Main Application
 // Pure vanilla JS + Tailwind CSS (ES Module)
-// Clean professional UI with SVG icons, in-place updates, and zero page shaking.
+// Clean professional UI with SVG icons, in-place updates, responsive layout, and modern comparative charts.
 
 import { runScheduler, validateProcesses } from './scheduler.js';
 
 // Professional SVG Vector Icons (Heroicons / Lucide design)
 const ICONS = {
   cpu: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M3 9h2m-2 6h2m14-6h2m-2 6h2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>`,
-  sparkles: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>`,
+  sparkles: `<svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>`,
   clock: `<svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
   playCircle: `<svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
   chartBar: `<svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>`,
@@ -15,8 +15,8 @@ const ICONS = {
   check: `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>`,
   arrowRight: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>`,
   arrowLeft: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>`,
-  sun: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`,
-  moon: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>`,
+  sun: `<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>`,
+  moon: `<svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>`,
   play: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>`,
   pause: `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>`,
   stepForward: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>`,
@@ -236,12 +236,12 @@ function renderGantt(gantt, options = {}) {
   ` : '';
 
   return `
-    <div class="relative w-full pt-1 pb-6 select-none" id="ganttChartContainer" data-total-end="${totalEnd}">
-      <div class="relative ${compact ? 'h-10' : 'h-16'} rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-inner">
+    <div class="relative w-full pt-1 pb-6 select-none overflow-x-auto" id="ganttChartContainer" data-total-end="${totalEnd}">
+      <div class="relative ${compact ? 'h-10' : 'h-16'} rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 shadow-inner min-w-[280px]">
         ${segmentsHtml}
         ${cursorHtml}
       </div>
-      <div class="relative w-full h-4 mt-1">
+      <div class="relative w-full h-4 mt-1 min-w-[280px]">
         ${ticksHtml}
       </div>
     </div>
@@ -257,7 +257,7 @@ function headerView() {
     const isCompleted = idx < currentIdx;
     return `
       <button onclick="app.goTo('${s.id}')"
-        class="btn-action flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium ${
+        class="btn-action flex-shrink-0 flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${
           isActive
             ? 'bg-indigo-600 text-white shadow-sm font-semibold'
             : isCompleted
@@ -280,24 +280,24 @@ function headerView() {
 
   return `
     <header class="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 shadow-sm">
-      <div class="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+      <div class="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-3 sm:gap-4">
+        <div class="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
+          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
             ${ICONS.cpu}
           </div>
           <div>
-            <h1 class="text-sm font-bold leading-tight text-slate-900 dark:text-white">CPU Scheduling Visualizer</h1>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400">CSE362 Lab Project</p>
+            <h1 class="text-xs sm:text-sm font-bold leading-tight text-slate-900 dark:text-white">CPU Scheduling Visualizer</h1>
+            <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">CSE362 Lab Project</p>
           </div>
         </div>
 
-        <nav class="flex items-center gap-1 overflow-x-auto py-1">
+        <nav class="flex items-center gap-1 overflow-x-auto py-1 scroll-smooth">
           ${pills}
         </nav>
 
-        <button onclick="app.toggleDark()"
-          class="btn-action p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          title="Toggle Dark Mode">
+        <button id="themeToggleBtn" onclick="app.toggleDark()"
+          class="theme-toggle-btn p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex-shrink-0"
+          title="Toggle Dark / Light Mode">
           ${state.darkMode ? ICONS.moon : ICONS.sun}
         </button>
       </div>
@@ -308,23 +308,26 @@ function headerView() {
 // 0. Intro Screen
 function introView() {
   return `
-    <div class="max-w-4xl mx-auto px-4 py-10">
-      <div class="text-center mb-10">
+    <div class="max-w-4xl mx-auto px-4 py-8 sm:py-12">
+      <div class="text-center mb-8 sm:mb-12">
         <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold mb-4 border border-indigo-200/50 dark:border-indigo-800/50">
           ${ICONS.sparkles}
           <span>Operating Systems Lab Project</span>
         </div>
-        <h2 class="text-4xl sm:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-          CPU Scheduling Visualizer
+        
+        <!-- Properly styled title with no descender clipping -->
+        <h2 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-slate-900 dark:text-white leading-[1.25] pb-2">
+          CPU Scheduling <span class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 bg-clip-text text-transparent inline-block pb-1">Visualizer</span>
         </h2>
-        <p class="mt-4 text-slate-600 dark:text-slate-300 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
+        
+        <p class="mt-3 text-slate-600 dark:text-slate-300 text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
           Interactive simulation and comprehensive comparison of six foundational CPU scheduling algorithms:
           <span class="font-semibold text-indigo-600 dark:text-indigo-400">FCFS, SJF, Priority, Round Robin, SRTF, and LJF</span>.
         </p>
       </div>
 
-      <div class="grid sm:grid-cols-3 gap-5 mb-10">
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 mb-8 sm:mb-10">
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/80 flex items-center justify-center mb-4">
             ${ICONS.clock}
           </div>
@@ -334,7 +337,7 @@ function introView() {
           </p>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/80 flex items-center justify-center mb-4">
             ${ICONS.playCircle}
           </div>
@@ -344,7 +347,7 @@ function introView() {
           </p>
         </div>
 
-        <div class="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
           <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 flex items-center justify-center mb-4">
             ${ICONS.chartBar}
           </div>
@@ -355,15 +358,15 @@ function introView() {
         </div>
       </div>
 
-      <div class="flex flex-wrap items-center justify-center gap-3">
-        <button onclick="app.goTo('identity')" class="btn-action px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 flex items-center gap-2">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
+        <button onclick="app.goTo('identity')" class="btn-action w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2">
           <span>Start Simulation</span>
           ${ICONS.arrowRight}
         </button>
-        <button onclick="app.loadPresetAndReview('report')" class="btn-action px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700">
+        <button onclick="app.loadPresetAndReview('report')" class="btn-action w-full sm:w-auto px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 text-center">
           Load Report Benchmark (Table 6.1)
         </button>
-        <button onclick="app.goTo('identity')" class="btn-action px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm flex items-center gap-1.5">
+        <button onclick="app.goTo('identity')" class="btn-action w-full sm:w-auto px-4 py-3 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-medium text-sm flex items-center justify-center gap-1.5">
           ${ICONS.academic}
           <span>Course Details</span>
         </button>
@@ -375,26 +378,26 @@ function introView() {
 // 1. Identity Screen (Course & Group Details)
 function identityView() {
   return `
-    <div class="max-w-3xl mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto px-4 py-6 sm:py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Project Identity</span>
-        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Course & Group Details</h2>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Course & Group Details</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Academic context and project contributors from the reference report.</p>
       </div>
 
-      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm p-6 mb-6 space-y-6">
-        <div class="grid sm:grid-cols-2 gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm p-5 sm:p-6 mb-6 space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
           <div>
             <span class="text-xs uppercase font-semibold text-slate-400">Course Code</span>
-            <p class="text-lg font-bold text-slate-900 dark:text-white">CSE362 (Operating Systems)</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">CSE362 (Operating Systems)</p>
           </div>
           <div>
             <span class="text-xs uppercase font-semibold text-slate-400">Section</span>
-            <p class="text-lg font-bold text-slate-900 dark:text-white">04</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">04</p>
           </div>
           <div class="sm:col-span-2">
             <span class="text-xs uppercase font-semibold text-slate-400">Project Title</span>
-            <p class="text-base font-semibold text-indigo-600 dark:text-indigo-400">
+            <p class="text-sm sm:text-base font-semibold text-indigo-600 dark:text-indigo-400">
               Designing algorithm visualizer for CPU scheduling algorithms
             </p>
           </div>
@@ -402,7 +405,7 @@ function identityView() {
 
         <div>
           <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Group Members</h3>
-          <div class="grid sm:grid-cols-3 gap-3">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
               <p class="font-bold text-slate-900 dark:text-white text-sm">Tasir Rahman</p>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023100000371</p>
@@ -422,12 +425,12 @@ function identityView() {
         </div>
       </div>
 
-      <div class="flex justify-between items-center">
-        <button onclick="app.goTo('intro')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+      <div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <button onclick="app.goTo('intro')" class="btn-action w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
           ${ICONS.arrowLeft}
           <span>Back</span>
         </button>
-        <button onclick="app.goTo('configure')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+        <button onclick="app.goTo('configure')" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
           <span>Step 1: Configure Processes</span>
           ${ICONS.arrowRight}
         </button>
@@ -442,7 +445,7 @@ function renderProcessRows() {
     <tr data-process-idx="${i}" class="group hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
       <td class="px-4 py-3 font-mono font-bold text-indigo-600 dark:text-indigo-400">
         <input type="text" value="${escapeHtml(p.id)}" onchange="app.updateProcess(${i}, 'id', this.value)"
-          class="w-20 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-sm">
+          class="w-20 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-sm">
       </td>
       <td class="px-4 py-3">
         <input type="number" min="0" value="${p.at}" onchange="app.updateProcess(${i}, 'at', this.value)"
@@ -457,7 +460,7 @@ function renderProcessRows() {
           class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
       </td>
       <td class="px-4 py-3 text-right">
-        <button onclick="app.removeProcess(${i})" class="btn-action text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40" title="Delete Process">
+        <button onclick="app.removeProcess(${i})" class="btn-action text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 inline-flex items-center justify-center" title="Delete Process">
           ${ICONS.trash}
         </button>
       </td>
@@ -480,11 +483,11 @@ function configureView() {
   ` : '<div id="validationContainer"></div>';
 
   return `
-    <div class="max-w-4xl mx-auto px-4 py-8">
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div class="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 1 of 5</span>
-          <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Processes</h2>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Processes</h2>
           <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Set Arrival Time (AT &ge; 0), Burst Time (BT &ge; 1), and Priority (&ge; 1, lower number = higher priority).
           </p>
@@ -506,7 +509,7 @@ function configureView() {
 
       <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mb-6">
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+          <table class="w-full text-left border-collapse min-w-[520px]">
             <thead>
               <tr class="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 <th class="px-4 py-3">Process ID</th>
@@ -523,12 +526,12 @@ function configureView() {
         </div>
       </div>
 
-      <div class="flex justify-between items-center">
-        <button onclick="app.goTo('identity')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+      <div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <button onclick="app.goTo('identity')" class="btn-action w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
           ${ICONS.arrowLeft}
           <span>Back</span>
         </button>
-        <button onclick="app.validateAndContinue('algorithm')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+        <button onclick="app.validateAndContinue('algorithm')" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
           <span>Step 2: Choose Algorithm</span>
           ${ICONS.arrowRight}
         </button>
@@ -545,7 +548,7 @@ function algorithmView() {
 
     return `
       <div id="algo-card-${key}" onclick="app.selectAlgo('${key}')"
-        class="card-interactive cursor-pointer p-5 rounded-2xl border-2 ${
+        class="card-interactive cursor-pointer p-4 sm:p-5 rounded-2xl border-2 ${
           isSelected
             ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/20'
             : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
@@ -585,22 +588,22 @@ function algorithmView() {
   const isRR = state.selectedAlgo === 'rr' || state.comparisonAlgos.includes('rr');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 2 of 5</span>
-        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Choose An Algorithm</h2>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Choose An Algorithm</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Pick the primary algorithm to visualize now, and choose which algorithms to compare in Step 5.</p>
       </div>
 
       <div class="mb-8">
         <h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">Primary Algorithm to Visualize</h3>
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" id="algoCardsGrid">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="algoCardsGrid">
           ${algoCards}
         </div>
       </div>
 
       <div id="rrQuantumContainer" class="${isRR ? 'block' : 'hidden'} bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl p-5 mb-8">
-        <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Time Quantum (q)</h4>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Maximum CPU time allocated per process per round.</p>
@@ -608,12 +611,12 @@ function algorithmView() {
           <div class="flex items-center gap-2">
             <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">Quantum:</span>
             <input type="number" min="1" id="quantumMainInput" value="${state.quantum}" onchange="app.setQuantum(this.value)"
-              class="w-20 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              class="w-24 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
           </div>
         </div>
       </div>
 
-      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 mb-8">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 mb-8">
         <div class="flex items-center justify-between gap-2 mb-4">
           <div>
             <h3 class="font-bold text-slate-900 dark:text-white text-sm">Select Algorithms for Comparison</h3>
@@ -628,12 +631,12 @@ function algorithmView() {
         </div>
       </div>
 
-      <div class="flex justify-between items-center">
-        <button onclick="app.goTo('configure')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+      <div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <button onclick="app.goTo('configure')" class="btn-action w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
           ${ICONS.arrowLeft}
           <span>Back</span>
         </button>
-        <button onclick="app.validateAndContinue('review')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+        <button onclick="app.validateAndContinue('review')" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
           <span>Step 3: Review The Schedule</span>
           ${ICONS.arrowRight}
         </button>
@@ -658,7 +661,7 @@ function reviewView() {
     return `
       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors font-mono text-sm">
         <td class="px-4 py-3 font-bold flex items-center gap-2">
-          <span class="w-3 h-3 rounded-full" style="background-color: ${color}"></span>
+          <span class="w-3 h-3 rounded-full flex-shrink-0" style="background-color: ${color}"></span>
           <span class="text-slate-900 dark:text-white">${escapeHtml(row.id)}</span>
         </td>
         <td class="px-4 py-3">${row.at}</td>
@@ -672,51 +675,51 @@ function reviewView() {
   }).join('');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8">
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 3 of 5</span>
-          <div class="flex items-center gap-3 mt-1">
-            <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white">Review The Schedule</h2>
+          <div class="flex items-center gap-3 mt-1 flex-wrap">
+            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">Review The Schedule</h2>
             <span class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
               ${escapeHtml(ALGORITHMS[state.selectedAlgo].name)}
             </span>
           </div>
         </div>
 
-        <button onclick="app.resetPlayback()" class="btn-action px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+        <button onclick="app.resetPlayback()" class="btn-action w-full sm:w-auto px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
           ${ICONS.refresh}
           <span>Reset Playback</span>
         </button>
       </div>
 
       <!-- Stat Cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Average Waiting Time</span>
+          <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Avg Waiting Time</span>
           <p class="text-2xl sm:text-3xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">${fmt(result.avgWt)}</p>
           <span class="text-[10px] text-slate-400 font-mono">avg WT = &Sigma;WT / N</span>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Average Turnaround</span>
+          <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Avg Turnaround</span>
           <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">${fmt(result.avgTat)}</p>
           <span class="text-[10px] text-slate-400 font-mono">avg TAT = &Sigma;TAT / N</span>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Makespan</span>
+          <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Makespan</span>
           <p class="text-2xl sm:text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1">${result.makespan}</p>
           <span class="text-[10px] text-slate-400 font-mono">completion of last job</span>
         </div>
         <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">CPU Idle Time</span>
+          <span class="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400">CPU Idle Time</span>
           <p class="text-2xl sm:text-3xl font-extrabold text-slate-600 dark:text-slate-300 mt-1">${fmt(result.idle)}</p>
           <span class="text-[10px] text-slate-400 font-mono">unallocated CPU cycles</span>
         </div>
       </div>
 
       <!-- Gantt Chart Section -->
-      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm mb-6">
-        <div class="flex items-center justify-between mb-4">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-6 shadow-sm mb-6">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 class="font-bold text-slate-900 dark:text-white text-base">Gantt Chart Timeline</h3>
           <span class="text-xs font-mono text-slate-400">Total duration: ${totalMakespan} time units</span>
         </div>
@@ -724,7 +727,7 @@ function reviewView() {
         ${renderGantt(result.gantt, { highlightTime: currentT })}
 
         <!-- Interactive Playback Toolbar -->
-        <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-4">
+        <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
           <div class="flex items-center gap-2">
             <button onclick="app.stepBack()" class="btn-action p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700" title="Step Back (t-1)">
               ${ICONS.stepBack}
@@ -771,7 +774,7 @@ function reviewView() {
           <span class="text-xs text-slate-500 font-mono">TAT = CT - AT | WT = TAT - BT</span>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+          <table class="w-full text-left border-collapse min-w-[500px]">
             <thead>
               <tr class="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <th class="px-4 py-3">Process</th>
@@ -791,7 +794,7 @@ function reviewView() {
       </div>
 
       <!-- Calculation Breakdown -->
-      <div class="p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-900/60 text-xs text-slate-700 dark:text-slate-300 mb-8 space-y-2">
+      <div class="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-900/60 text-xs text-slate-700 dark:text-slate-300 mb-8 space-y-2">
         <h4 class="font-bold text-slate-900 dark:text-white text-sm">Formula Calculation Breakdown</h4>
         <div class="font-mono text-xs space-y-1">
           <p>• Total Waiting Time = ${result.rows.map((r) => r.wt).join(' + ')} = ${result.rows.reduce((sum, r) => sum + r.wt, 0)}</p>
@@ -801,12 +804,12 @@ function reviewView() {
         </div>
       </div>
 
-      <div class="flex justify-between items-center">
-        <button onclick="app.goTo('algorithm')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+      <div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <button onclick="app.goTo('algorithm')" class="btn-action w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
           ${ICONS.arrowLeft}
           <span>Back</span>
         </button>
-        <button onclick="app.goTo('compare-setup')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+        <button onclick="app.goTo('compare-setup')" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
           <span>Step 4: Configure Comparison</span>
           ${ICONS.arrowRight}
         </button>
@@ -820,16 +823,16 @@ function compareSetupView() {
   const hasRR = state.comparisonAlgos.includes('rr');
 
   return `
-    <div class="max-w-3xl mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto px-4 py-6 sm:py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 4 of 5</span>
-        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Comparison Inputs</h2>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Comparison Inputs</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
           Each selected algorithm evaluates against your configured process workload. Adjust specific parameters below prior to running the comparative benchmark.
         </p>
       </div>
 
-      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm mb-6 space-y-6">
+      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm mb-6 space-y-6">
         <div>
           <h3 class="font-bold text-slate-900 dark:text-white text-sm mb-3">Algorithms Included in Comparison (${state.comparisonAlgos.length})</h3>
           <div class="flex flex-wrap gap-2">
@@ -842,7 +845,7 @@ function compareSetupView() {
         </div>
 
         ${hasRR ? `
-          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Quantum (q)</h4>
               <p class="text-xs text-slate-500 dark:text-slate-400">Specify the time slice for Round Robin during comparative evaluation.</p>
@@ -857,12 +860,12 @@ function compareSetupView() {
         </div>
       </div>
 
-      <div class="flex justify-between items-center">
-        <button onclick="app.goTo('review')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+      <div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <button onclick="app.goTo('review')" class="btn-action w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
           ${ICONS.arrowLeft}
           <span>Back</span>
         </button>
-        <button onclick="app.goTo('comparison')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+        <button onclick="app.goTo('comparison')" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
           <span>Step 5: Compare Algorithms</span>
           ${ICONS.arrowRight}
         </button>
@@ -930,41 +933,98 @@ function comparisonView() {
     `;
   }).join('');
 
-  // Bar Charts
-  const barChartsHtml = results.map((r) => {
-    const wtPct = Math.max(8, (r.avgWt / maxBarWt) * 100);
-    const tatPct = Math.max(8, (r.avgTat / maxBarTat) * 100);
-    const isBest = r.avgWt === minWt;
+  // Sort by performance (Avg WT ascending) to provide rank numbers
+  const sortedByRank = [...results].sort((a, b) => a.avgWt - b.avgWt || a.avgTat - b.avgTat);
+
+  // Modern Eye-Catching Bar Charts
+  const modernBarChartsHtml = sortedByRank.map((r, rankIdx) => {
+    const wtPct = Math.min(100, Math.max(12, (r.avgWt / maxBarWt) * 100));
+    const tatPct = Math.min(100, Math.max(12, (r.avgTat / maxBarTat) * 100));
+    const isTopWinner = rankIdx === 0;
+    const diffWt = (r.avgWt - minWt).toFixed(2);
+    const diffTat = (r.avgTat - minTat).toFixed(2);
+
+    const rankBadgeClass = rankIdx === 0
+      ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-700 dark:text-amber-300 ring-1 ring-amber-400/50'
+      : rankIdx === 1
+      ? 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 ring-1 ring-slate-400/50'
+      : rankIdx === 2
+      ? 'bg-amber-900/10 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 ring-1 ring-amber-600/30'
+      : 'bg-slate-100 dark:bg-slate-800/60 text-slate-500';
 
     return `
-      <div class="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-        <div class="flex justify-between items-center text-xs font-semibold">
-          <span class="${isBest ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-slate-800 dark:text-slate-200'}">
-            ${escapeHtml(r.algo.short)}${r.key === 'rr' ? ` (q=${r.q})` : ''}
-          </span>
-          <span class="font-mono text-slate-500">WT: ${fmt(r.avgWt)} | TAT: ${fmt(r.avgTat)}</span>
+      <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border ${
+        isTopWinner
+          ? 'border-indigo-500 dark:border-indigo-500/80 shadow-md shadow-indigo-500/5 ring-1 ring-indigo-500/20'
+          : 'border-slate-200 dark:border-slate-800'
+      } flex flex-col justify-between gap-4">
+        
+        <!-- Header -->
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black ${rankBadgeClass}">
+              #${rankIdx + 1}
+            </span>
+            <div>
+              <h4 class="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight">
+                ${escapeHtml(r.algo.name)}
+              </h4>
+              <span class="text-xs text-slate-400 font-mono">${r.algo.type}${r.key === 'rr' ? ` (q=${r.q})` : ''}</span>
+            </div>
+          </div>
+          ${isTopWinner ? '<span class="px-2.5 py-1 rounded-full text-xs font-extrabold bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm flex items-center gap-1">★ Best</span>' : ''}
         </div>
-        <!-- Waiting Time Bar -->
-        <div class="w-full bg-slate-200 dark:bg-slate-700 h-2.5 rounded-full overflow-hidden">
-          <div class="bg-amber-500 h-full rounded-full transition-all duration-300" style="width: ${wtPct}%;"></div>
+
+        <!-- Metric Bars -->
+        <div class="space-y-3 pt-1">
+          <!-- Waiting Time Bar -->
+          <div>
+            <div class="flex justify-between items-center text-xs mb-1">
+              <span class="font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500"></span>
+                <span>Avg Waiting Time</span>
+              </span>
+              <div class="font-mono text-xs flex items-center gap-2">
+                <span class="font-extrabold text-amber-600 dark:text-amber-400">${fmt(r.avgWt)}</span>
+                <span class="text-[10px] text-slate-400">(${diffWt === '0.00' ? 'Optimal' : `+${diffWt}`})</span>
+              </div>
+            </div>
+            <div class="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700/60">
+              <div class="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 shadow-sm" style="width: ${wtPct}%;"></div>
+            </div>
+          </div>
+
+          <!-- Turnaround Time Bar -->
+          <div>
+            <div class="flex justify-between items-center text-xs mb-1">
+              <span class="font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"></span>
+                <span>Avg Turnaround Time</span>
+              </span>
+              <div class="font-mono text-xs flex items-center gap-2">
+                <span class="font-extrabold text-emerald-600 dark:text-emerald-400">${fmt(r.avgTat)}</span>
+                <span class="text-[10px] text-slate-400">(${diffTat === '0.00' ? 'Optimal' : `+${diffTat}`})</span>
+              </div>
+            </div>
+            <div class="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-200/60 dark:border-slate-700/60">
+              <div class="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-500 shadow-sm" style="width: ${tatPct}%;"></div>
+            </div>
+          </div>
         </div>
-        <!-- Turnaround Time Bar -->
-        <div class="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-          <div class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: ${tatPct}%;"></div>
-        </div>
+
       </div>
     `;
   }).join('');
 
   // Side-by-side Gantt cards
   const ganttCards = results.map((r) => `
-    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
-      <div class="flex items-center justify-between mb-3">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 sm:p-5 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <div>
           <h4 class="font-bold text-slate-900 dark:text-white text-sm">${escapeHtml(r.algo.name)}</h4>
           <span class="text-xs text-slate-400 font-mono">${r.algo.type}${r.key === 'rr' ? ` (q=${r.q})` : ''}</span>
         </div>
-        <div class="flex gap-2 text-xs font-mono">
+        <div class="flex gap-2 text-xs font-mono flex-wrap">
           <span class="px-2 py-1 rounded bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400">Avg WT: ${fmt(r.avgWt)}</span>
           <span class="px-2 py-1 rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">Avg TAT: ${fmt(r.avgTat)}</span>
         </div>
@@ -974,33 +1034,57 @@ function comparisonView() {
   `).join('');
 
   return `
-    <div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 5 of 5</span>
-        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Compare Algorithms</h2>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Compare Algorithms</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Comprehensive side-by-side performance review for your configured workload.</p>
       </div>
 
       <!-- Verdict Banner -->
-      <div class="p-5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200 dark:border-indigo-800 mb-6">
+      <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-200 dark:border-indigo-800 mb-6">
         <h3 class="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2 mb-1">
           ${ICONS.trophy}
           <span>Scheduling Verdict</span>
         </h3>
-        <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
           <strong class="text-indigo-600 dark:text-indigo-400">${escapeHtml(bestWtAlgo.algo.name)}</strong> yielded the lowest average waiting time (<span class="font-mono font-bold">${fmt(minWt)}</span>),
           <strong class="text-indigo-600 dark:text-indigo-400">${escapeHtml(bestTatAlgo.algo.name)}</strong> achieved the lowest average turnaround time (<span class="font-mono font-bold">${fmt(minTat)}</span>),
           and <strong class="text-indigo-600 dark:text-indigo-400">${escapeHtml(bestIdleAlgo.algo.name)}</strong> minimized CPU idle time (<span class="font-mono font-bold">${fmt(minIdle)}</span>).
         </p>
       </div>
 
+      <!-- Visual Metric Comparison Section -->
+      <div class="mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <div>
+            <h3 class="font-bold text-slate-900 dark:text-white text-base">Comparative Performance Matrix & Charts</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Ranked from best overall to lowest performing on this workload.</p>
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+              <span class="w-3 h-3 rounded-full bg-gradient-to-r from-amber-400 to-orange-500"></span>
+              Waiting Time
+            </span>
+            <span class="flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+              <span class="w-3 h-3 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"></span>
+              Turnaround Time
+            </span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          ${modernBarChartsHtml}
+        </div>
+      </div>
+
       <!-- Comparison Summary Table -->
       <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm mb-6">
         <div class="p-4 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-          <h3 class="font-bold text-slate-900 dark:text-white text-sm">Performance Comparison Matrix</h3>
+          <h3 class="font-bold text-slate-900 dark:text-white text-sm">Detailed Comparison Table</h3>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+          <table class="w-full text-left border-collapse min-w-[500px]">
             <thead>
               <tr class="bg-slate-50 dark:bg-slate-800/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                 <th class="px-4 py-3">Algorithm</th>
@@ -1017,19 +1101,6 @@ function comparisonView() {
         </div>
       </div>
 
-      <!-- Visual Metric Comparison Bars -->
-      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h3 class="font-bold text-slate-900 dark:text-white text-sm">Comparative Bar Chart</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Visual ranking of Average Waiting Time (<span class="text-amber-500 font-bold">Orange</span>) and Turnaround Time (<span class="text-emerald-500 font-bold">Green</span>).</p>
-          </div>
-        </div>
-        <div class="grid sm:grid-cols-2 gap-3">
-          ${barChartsHtml}
-        </div>
-      </div>
-
       <!-- Individual Gantt Timelines -->
       <div class="space-y-4 mb-8">
         <h3 class="font-bold text-slate-900 dark:text-white text-sm">Gantt Charts Side-by-Side</h3>
@@ -1038,12 +1109,12 @@ function comparisonView() {
         </div>
       </div>
 
-      <div class="flex justify-between items-center">
-        <button onclick="app.goTo('compare-setup')" class="btn-action px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5">
+      <div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
+        <button onclick="app.goTo('compare-setup')" class="btn-action w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
           ${ICONS.arrowLeft}
           <span>Back</span>
         </button>
-        <button onclick="app.goTo('end')" class="btn-action px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5">
+        <button onclick="app.goTo('end')" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
           <span>Finish Simulation</span>
           ${ICONS.arrowRight}
         </button>
@@ -1055,22 +1126,22 @@ function comparisonView() {
 // 7. Complete Screen (The End)
 function endView() {
   return `
-    <div class="max-w-2xl mx-auto px-4 py-16 text-center">
+    <div class="max-w-2xl mx-auto px-4 py-12 sm:py-16 text-center">
       <div class="w-16 h-16 mx-auto rounded-3xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-500/20 mb-6">
         ${ICONS.check}
       </div>
       <span class="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Simulation Complete</span>
-      <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white mt-2">All Algorithms Evaluated</h2>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white mt-2">All Algorithms Evaluated</h2>
       <p class="text-slate-600 dark:text-slate-300 text-sm sm:text-base mt-4 max-w-lg mx-auto leading-relaxed">
         You have successfully explored process input configuration, algorithm scheduling, interactive Gantt playback, and side-by-side comparative analytics.
       </p>
 
-      <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <button onclick="app.resetAll()" class="btn-action px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 flex items-center gap-2">
+      <div class="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
+        <button onclick="app.resetAll()" class="btn-action w-full sm:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2">
           ${ICONS.refresh}
           <span>Run Again (Reset Benchmark)</span>
         </button>
-        <button onclick="app.goTo('configure')" class="btn-action px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 flex items-center gap-2">
+        <button onclick="app.goTo('configure')" class="btn-action w-full sm:w-auto px-5 py-3 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2">
           ${ICONS.edit}
           <span>Modify Current Processes</span>
         </button>
@@ -1202,7 +1273,17 @@ window.app = {
   toggleDark() {
     state.darkMode = !state.darkMode;
     localStorage.setItem('cpuDarkMode', String(state.darkMode));
-    renderApp();
+    document.documentElement.classList.add('theme-transition');
+    applyTheme();
+
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) {
+      btn.innerHTML = state.darkMode ? ICONS.moon : ICONS.sun;
+    }
+
+    setTimeout(() => {
+      document.documentElement.classList.remove('theme-transition');
+    }, 280);
   },
 
   loadPreset(key) {
@@ -1307,9 +1388,9 @@ window.app = {
       const card = document.getElementById(`algo-card-${k}`);
       if (card) {
         if (k === key) {
-          card.className = 'card-interactive cursor-pointer p-5 rounded-2xl border-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/20';
+          card.className = 'card-interactive cursor-pointer p-4 sm:p-5 rounded-2xl border-2 border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-md ring-2 ring-indigo-500/20';
         } else {
-          card.className = 'card-interactive cursor-pointer p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700';
+          card.className = 'card-interactive cursor-pointer p-4 sm:p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700';
         }
       }
     });

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="cpuGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5" />
+      <stop offset="50%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="#e0e7ff" stop-opacity="0.8" />
+    </linearGradient>
+  </defs>
+  <!-- Background Rounded Rect -->
+  <rect width="64" height="64" rx="16" fill="url(#cpuGrad)" />
+  
+  <!-- Outer Pins -->
+  <path d="M22 6v6m10-6v6m10-6v6M22 52v6m10-6v6m10-6v6M6 22h6m-6 10h6m-6 10h6M52 22h6m-6 10h6m-6 10h6" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" opacity="0.85" />
+  
+  <!-- Main Processor Die -->
+  <rect x="14" y="14" width="36" height="36" rx="8" fill="#1e1b4b" stroke="#ffffff" stroke-width="2" />
+  
+  <!-- Internal Core -->
+  <rect x="22" y="22" width="20" height="20" rx="4" fill="url(#coreGrad)" />
+  
+  <!-- Pulse Circuit Paths -->
+  <path d="M25 32h14M32 25v14" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" />
+</svg>
