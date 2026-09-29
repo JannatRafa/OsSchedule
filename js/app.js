@@ -287,7 +287,7 @@ function headerView() {
           </div>
           <div>
             <h1 class="text-xs sm:text-sm font-bold leading-tight text-slate-900 dark:text-white">CPU Scheduling Visualizer</h1>
-            <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">CSEXXX Lab Project</p>
+            <p class="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">CSE362.2 Lab Project</p>
           </div>
         </div>
 
@@ -389,7 +389,7 @@ function identityView() {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
           <div>
             <span class="text-xs uppercase font-semibold text-slate-400">Course Code</span>
-            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">CSEXXX (Operating Systems)</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">CSE362.2 (Operating Systems Lab)</p>
           </div>
           <div>
             <span class="text-xs uppercase font-semibold text-slate-400">Section</span>
