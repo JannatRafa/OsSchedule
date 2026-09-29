@@ -393,7 +393,7 @@ function identityView() {
           </div>
           <div>
             <span class="text-xs uppercase font-semibold text-slate-400">Section</span>
-            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">04</p>
+            <p class="text-base sm:text-lg font-bold text-slate-900 dark:text-white">02</p>
           </div>
           <div class="sm:col-span-2">
             <span class="text-xs uppercase font-semibold text-slate-400">Project Title</span>
