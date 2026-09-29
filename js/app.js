@@ -125,6 +125,8 @@ const state = {
   quantum: 2,
   comparisonAlgos: ['fcfs', 'sjf', 'rr', 'priority', 'srtf', 'ljf'],
   comparisonQuantums: { rr: 2 },
+  comparisonInputs: {},
+  comparisonErrors: {},
   validationErrors: [],
   darkMode: localStorage.getItem('cpuDarkMode') !== 'false',
   playback: {
@@ -841,46 +843,152 @@ function reviewView() {
   `;
 }
 
+// Per-algorithm comparison inputs: each selected algorithm starts as a clone of
+// Step 1 processes, then becomes fully independent (editable without affecting others).
+function ensureComparisonInputs() {
+  if (!state.comparisonInputs) state.comparisonInputs = {};
+  state.comparisonAlgos.forEach((algo) => {
+    if (!state.comparisonInputs[algo]) {
+      state.comparisonInputs[algo] = {
+        processes: JSON.parse(JSON.stringify(state.processes)),
+        quantum: algo === 'rr' ? (state.comparisonQuantums.rr || state.quantum || 2) : (state.quantum || 2),
+      };
+    }
+    if (algo === 'rr' && state.comparisonQuantums.rr) {
+      state.comparisonInputs[algo].quantum = state.comparisonQuantums.rr;
+    }
+  });
+}
+
+function getComparisonInput(algo) {
+  ensureComparisonInputs();
+  return state.comparisonInputs[algo];
+}
+
+function isComparisonCustom(algo) {
+  const input = state.comparisonInputs[algo];
+  if (!input) return false;
+  return JSON.stringify(input.processes) !== JSON.stringify(state.processes)
+    || (algo === 'rr' && Number(input.quantum) !== Number(state.comparisonQuantums.rr || state.quantum));
+}
+
 // 5. Step 4: Configure Comparison Inputs
 function compareSetupView() {
-  const hasRR = state.comparisonAlgos.includes('rr');
+  ensureComparisonInputs();
+  const baseCount = state.processes.length;
+
+  const algoCards = state.comparisonAlgos.map((algoKey) => {
+    const input = state.comparisonInputs[algoKey];
+    const algo = ALGORITHMS[algoKey];
+    const errs = (state.comparisonErrors && state.comparisonErrors[algoKey]) || [];
+    const custom = isComparisonCustom(algoKey);
+    const isPreemptive = algo.type === 'Preemptive';
+
+    const rowsHtml = input.processes.map((p, i) => `
+      <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+        <td class="px-3 py-2 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+          <input type="text" value="${escapeHtml(p.id)}" onchange="app.updateComparisonProcess('${algoKey}', ${i}, 'id', this.value)" aria-label="Process ID"
+            class="w-20 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500 font-mono font-semibold outline-none text-xs">
+        </td>
+        <td class="px-3 py-2">
+          <input type="number" min="0" value="${p.at}" onchange="app.updateComparisonProcess('${algoKey}', ${i}, 'at', this.value)" aria-label="Arrival time"
+            class="w-20 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+        </td>
+        <td class="px-3 py-2">
+          <input type="number" min="1" value="${p.bt}" onchange="app.updateComparisonProcess('${algoKey}', ${i}, 'bt', this.value)" aria-label="Burst time"
+            class="w-20 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+        </td>
+        <td class="px-3 py-2">
+          <input type="number" min="1" value="${p.priority}" onchange="app.updateComparisonProcess('${algoKey}', ${i}, 'priority', this.value)" aria-label="Priority"
+            class="w-20 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none">
+        </td>
+        <td class="px-3 py-2 text-right">
+          <button onclick="app.removeComparisonProcess('${algoKey}', ${i})" class="btn-action text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 inline-flex items-center justify-center" title="Remove process from ${escapeHtml(algo.short)}">
+            ${ICONS.trash}
+          </button>
+        </td>
+      </tr>
+    `).join('');
+
+    return `
+      <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
+          <h3 class="font-bold text-slate-900 dark:text-white text-sm">${escapeHtml(algo.name)}</h3>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
+            isPreemptive
+              ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
+              : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
+          }">${algo.type}</span>
+          ${custom ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">Edited</span>' : ''}
+          <span class="text-[11px] font-mono text-slate-400">${input.processes.length} procs</span>
+          <div class="ml-auto flex items-center gap-2">
+            ${algoKey === 'rr' ? `
+              <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span>q =</span>
+                <input type="number" min="1" value="${input.quantum}" onchange="app.setComparisonQuantum('${algoKey}', this.value)" aria-label="Round Robin time quantum"
+                  class="w-16 px-2 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono font-bold text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
+              </label>
+            ` : ''}
+            <button onclick="app.addComparisonProcess('${algoKey}')" class="btn-action px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px] flex items-center gap-1">
+              ${ICONS.plus}
+              <span>Add</span>
+            </button>
+            <button onclick="app.resetComparisonAlgo('${algoKey}')" class="btn-action px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" title="Reset ${escapeHtml(algo.short)} inputs to Step 1 values">
+              Reset
+            </button>
+          </div>
+        </div>
+        ${errs.length ? `
+          <div class="mx-4 sm:mx-5 mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs">
+            <ul class="list-disc list-inside space-y-0.5">
+              ${errs.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
+            </ul>
+          </div>
+        ` : ''}
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse min-w-[480px]">
+            <thead>
+              <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                <th class="px-3 py-2.5 font-bold">Process</th>
+                <th class="px-3 py-2.5 font-bold">Arrival</th>
+                <th class="px-3 py-2.5 font-bold">Burst</th>
+                <th class="px-3 py-2.5 font-bold">Priority</th>
+                <th class="px-3 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+  }).join('');
 
   return `
-    <div class="max-w-3xl mx-auto px-4 py-6 sm:py-8">
+    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-8">
       <div class="mb-6">
         <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Step 4 of 5</span>
         <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-1">Configure Comparison Inputs</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Each selected algorithm evaluates against your configured process workload. Adjust specific parameters below prior to running the comparative benchmark.
+          Per-algorithm input — each algorithm below starts from the ${baseCount} process${baseCount === 1 ? '' : 'es'} configured in Step 1.
+          Edit any value here to run that algorithm against different numbers without affecting the others.
         </p>
       </div>
 
-      <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-sm mb-6 space-y-6">
-        <div>
-          <h3 class="font-bold text-slate-900 dark:text-white text-sm mb-3">Algorithms Included in Comparison (${state.comparisonAlgos.length})</h3>
-          <div class="flex flex-wrap gap-2">
-            ${state.comparisonAlgos.map((k) => `
-              <span class="px-3 py-1 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">
-                ${escapeHtml(ALGORITHMS[k].name)}
-              </span>
-            `).join('')}
-          </div>
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-3 shadow-sm mb-5">
+        <div class="text-xs text-slate-500 dark:text-slate-400">
+          <span class="font-bold text-slate-800 dark:text-slate-200">${state.comparisonAlgos.length} algorithms</span>
+          <span> in comparison · edits here never change Step 1</span>
         </div>
+        <button onclick="app.resetAllComparisonInputs()" class="btn-action w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
+          ${ICONS.refresh}
+          <span>Reset all to Step 1 values</span>
+        </button>
+      </div>
 
-        ${hasRR ? `
-          <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h4 class="font-bold text-slate-900 dark:text-white text-sm">Round Robin Quantum (q)</h4>
-              <p class="text-xs text-slate-500 dark:text-slate-400">Specify the time slice for Round Robin during comparative evaluation.</p>
-            </div>
-            <input type="number" min="1" value="${state.comparisonQuantums.rr || 2}" onchange="app.setComparisonQuantum('rr', this.value)"
-              class="w-24 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 font-mono font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-          </div>
-        ` : ''}
-
-        <div class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-          In the next step, all selected algorithms will run on identical arrival times, burst times, and priorities to identify the optimal scheduling strategy.
-        </div>
+      <div class="space-y-4 mb-6">
+        ${algoCards}
       </div>
 
       <div class="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3">
@@ -888,7 +996,7 @@ function compareSetupView() {
           ${ICONS.arrowLeft}
           <span>Back</span>
         </button>
-        <button onclick="app.goTo('comparison')" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
+        <button onclick="app.validateComparisonAndContinue()" class="btn-action w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5">
           <span>Step 5: Compare Algorithms</span>
           ${ICONS.arrowRight}
         </button>
@@ -899,13 +1007,19 @@ function compareSetupView() {
 
 // 6. Step 5: Compare Algorithms
 function comparisonView() {
+  ensureComparisonInputs();
   const results = state.comparisonAlgos.map((algoKey) => {
-    const q = algoKey === 'rr' ? (state.comparisonQuantums.rr || state.quantum) : state.quantum;
-    const res = runScheduler(state.processes, algoKey, q);
+    const input = state.comparisonInputs[algoKey] || {
+      processes: state.processes,
+      quantum: algoKey === 'rr' ? (state.comparisonQuantums.rr || state.quantum) : state.quantum,
+    };
+    const q = algoKey === 'rr' ? (Number(input.quantum) || state.comparisonQuantums.rr || state.quantum) : state.quantum;
+    const res = runScheduler(input.processes, algoKey, q);
     return {
       key: algoKey,
       algo: ALGORITHMS[algoKey],
       q,
+      edited: isComparisonCustom(algoKey),
       ...res,
     };
   });
@@ -937,7 +1051,7 @@ function comparisonView() {
       <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors font-mono text-sm">
         <td class="px-4 py-3.5 font-bold font-sans">
           <div class="text-slate-900 dark:text-white font-semibold">${escapeHtml(r.algo.name)}</div>
-          <div class="text-xs text-slate-400 font-mono">${r.algo.type}${r.key === 'rr' ? ` (q=${r.q})` : ''}</div>
+          <div class="text-xs text-slate-400 font-mono">${r.algo.type}${r.key === 'rr' ? ` (q=${r.q})` : ''}${r.edited ? ' · edited' : ''}</div>
         </td>
         <td class="px-4 py-3.5">
           <span class="font-bold ${isBestWt ? 'text-emerald-600 dark:text-emerald-400' : ''}">${fmt(r.avgWt)}</span>
@@ -1465,7 +1579,99 @@ window.app = {
   },
 
   setComparisonQuantum(algo, val) {
-    state.comparisonQuantums[algo] = Math.max(1, parseInt(val, 10) || 1);
+    const q = Math.max(1, parseInt(val, 10) || 1);
+    state.comparisonQuantums[algo] = q;
+    ensureComparisonInputs();
+    if (state.comparisonInputs[algo]) {
+      state.comparisonInputs[algo].quantum = q;
+    }
+  },
+
+  updateComparisonProcess(algo, idx, field, value) {
+    ensureComparisonInputs();
+    const input = state.comparisonInputs[algo];
+    if (!input || !input.processes[idx]) return;
+    if (field === 'id') {
+      input.processes[idx].id = String(value).trim();
+    } else {
+      input.processes[idx][field] = Number(value);
+    }
+    if (state.comparisonErrors) state.comparisonErrors[algo] = [];
+  },
+
+  addComparisonProcess(algo) {
+    ensureComparisonInputs();
+    const input = state.comparisonInputs[algo];
+    if (!input) return;
+    const nextIdx = input.processes.length + 1;
+    let newId = `P${nextIdx}`;
+    let counter = nextIdx;
+    while (input.processes.some((p) => p.id === newId)) {
+      counter++;
+      newId = `P${counter}`;
+    }
+    input.processes.push({ id: newId, at: 0, bt: 4, priority: 2 });
+    renderApp();
+  },
+
+  removeComparisonProcess(algo, idx) {
+    ensureComparisonInputs();
+    const input = state.comparisonInputs[algo];
+    if (!input) return;
+    if (input.processes.length <= 1) {
+      state.comparisonErrors = {
+        ...(state.comparisonErrors || {}),
+        [algo]: ['At least one process is required per algorithm.'],
+      };
+      renderApp();
+      return;
+    }
+    input.processes.splice(idx, 1);
+    renderApp();
+  },
+
+  resetComparisonAlgo(algo) {
+    ensureComparisonInputs();
+    state.comparisonInputs[algo] = {
+      processes: JSON.parse(JSON.stringify(state.processes)),
+      quantum: algo === 'rr' ? (state.comparisonQuantums.rr || state.quantum || 2) : (state.quantum || 2),
+    };
+    if (state.comparisonErrors) state.comparisonErrors[algo] = [];
+    renderApp();
+  },
+
+  resetAllComparisonInputs() {
+    state.comparisonInputs = {};
+    state.comparisonErrors = {};
+    ensureComparisonInputs();
+    state.comparisonAlgos.forEach((algo) => {
+      state.comparisonInputs[algo] = {
+        processes: JSON.parse(JSON.stringify(state.processes)),
+        quantum: algo === 'rr' ? (state.comparisonQuantums.rr || state.quantum || 2) : (state.quantum || 2),
+      };
+    });
+    renderApp();
+  },
+
+  validateComparisonAndContinue() {
+    ensureComparisonInputs();
+    const errors = {};
+    let hasError = false;
+    state.comparisonAlgos.forEach((algo) => {
+      const input = state.comparisonInputs[algo];
+      const algoErrs = validateProcesses(input ? input.processes : []);
+      if (algo === 'rr' && (!input || Number(input.quantum) < 1)) {
+        algoErrs.push('Round Robin quantum (q) must be 1 or greater.');
+      }
+      errors[algo] = algoErrs;
+      if (algoErrs.length) hasError = true;
+    });
+    state.comparisonErrors = errors;
+    if (hasError) {
+      renderApp();
+      return;
+    }
+    app.goTo('comparison');
   },
 
   // In-place comparison algorithm toggle without page re-render or shaking
@@ -1599,6 +1805,8 @@ window.app = {
     state.quantum = 2;
     state.comparisonAlgos = ['fcfs', 'sjf', 'rr', 'priority', 'srtf', 'ljf'];
     state.comparisonQuantums = { rr: 2 };
+    state.comparisonInputs = {};
+    state.comparisonErrors = {};
     state.validationErrors = [];
     state.playback.currentTime = 0;
     app.goTo('configure');
