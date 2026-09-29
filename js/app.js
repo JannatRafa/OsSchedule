@@ -409,12 +409,12 @@ function identityView() {
             <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
               <p class="font-bold text-slate-900 dark:text-white text-sm">Jannat Hossain</p>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 202300000020</p>
-              <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 64</span>
+              <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 63</span>
             </div>
             <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
               <p class="font-bold text-slate-900 dark:text-white text-sm">Attini Aziz Ditiya</p>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ID: 2023000000164</p>
-              <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 64</span>
+              <span class="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">Batch 63</span>
             </div>
             <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
               <p class="font-bold text-slate-900 dark:text-white text-sm">Kazi Abu Rahid</p>
