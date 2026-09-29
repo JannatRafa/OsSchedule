@@ -127,6 +127,7 @@ const state = {
   comparisonQuantums: { rr: 2 },
   comparisonInputs: {},
   comparisonErrors: {},
+  comparisonCollapsed: {},
   validationErrors: [],
   darkMode: localStorage.getItem('cpuDarkMode') !== 'false',
   playback: {
@@ -847,7 +848,8 @@ function reviewView() {
 // Step 1 processes, then becomes fully independent (editable without affecting others).
 function ensureComparisonInputs() {
   if (!state.comparisonInputs) state.comparisonInputs = {};
-  state.comparisonAlgos.forEach((algo) => {
+  if (!state.comparisonCollapsed) state.comparisonCollapsed = {};
+  state.comparisonAlgos.forEach((algo, idx) => {
     if (!state.comparisonInputs[algo]) {
       state.comparisonInputs[algo] = {
         processes: JSON.parse(JSON.stringify(state.processes)),
@@ -856,6 +858,9 @@ function ensureComparisonInputs() {
     }
     if (algo === 'rr' && state.comparisonQuantums.rr) {
       state.comparisonInputs[algo].quantum = state.comparisonQuantums.rr;
+    }
+    if (state.comparisonCollapsed[algo] === undefined) {
+      state.comparisonCollapsed[algo] = idx > 0;
     }
   });
 }
@@ -882,6 +887,7 @@ function compareSetupView() {
     const algo = ALGORITHMS[algoKey];
     const errs = (state.comparisonErrors && state.comparisonErrors[algoKey]) || [];
     const custom = isComparisonCustom(algoKey);
+    const collapsed = !!(state.comparisonCollapsed && state.comparisonCollapsed[algoKey]);
     const isPreemptive = algo.type === 'Preemptive';
 
     const rowsHtml = input.processes.map((p, i) => `
@@ -912,15 +918,20 @@ function compareSetupView() {
 
     return `
       <section class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/50">
-          <h3 class="font-bold text-slate-900 dark:text-white text-sm">${escapeHtml(algo.name)}</h3>
+        <div class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 bg-slate-50/70 dark:bg-slate-800/50 ${collapsed ? 'rounded-2xl' : 'border-b border-slate-200 dark:border-slate-800 rounded-t-2xl'}">
+          <button id="comp-toggle-${algoKey}" onclick="app.toggleComparisonCollapse('${algoKey}')" aria-expanded="${!collapsed}" aria-controls="comp-body-${algoKey}" title="${collapsed ? 'Expand' : 'Collapse'} ${escapeHtml(algo.short)} inputs"
+            class="btn-action flex items-center gap-1.5 min-w-0 rounded-lg px-1 -ml-1 py-1 outline-none focus:ring-2 focus:ring-indigo-500/30">
+            <svg id="comp-chevron-${algoKey}" class="w-4 h-4 text-slate-400 transition-transform duration-200 ${collapsed ? '' : 'rotate-90'} flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+            <span class="font-bold text-slate-900 dark:text-white text-sm truncate">${escapeHtml(algo.name)}</span>
+          </button>
           <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${
             isPreemptive
               ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300'
               : 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300'
           }">${algo.type}</span>
           ${custom ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">Edited</span>' : ''}
-          <span class="text-[11px] font-mono text-slate-400">${input.processes.length} procs</span>
+          ${errs.length ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300">${errs.length} error${errs.length === 1 ? '' : 's'}</span>` : ''}
+          <span class="text-[11px] font-mono text-slate-400">${input.processes.length} procs${algoKey === 'rr' ? ` · q=${input.quantum}` : ''}</span>
           <div class="ml-auto flex items-center gap-2">
             ${algoKey === 'rr' ? `
               <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -938,28 +949,30 @@ function compareSetupView() {
             </button>
           </div>
         </div>
-        ${errs.length ? `
-          <div class="mx-4 sm:mx-5 mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs">
-            <ul class="list-disc list-inside space-y-0.5">
-              ${errs.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
-            </ul>
+        <div id="comp-body-${algoKey}" class="${collapsed ? 'hidden' : ''}">
+          ${errs.length ? `
+            <div class="mx-4 sm:mx-5 mt-3 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 text-xs">
+              <ul class="list-disc list-inside space-y-0.5">
+                ${errs.map((e) => `<li>${escapeHtml(e)}</li>`).join('')}
+              </ul>
+            </div>
+          ` : ''}
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse min-w-[480px]">
+              <thead>
+                <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                  <th class="px-3 py-2.5 font-bold">Process</th>
+                  <th class="px-3 py-2.5 font-bold">Arrival</th>
+                  <th class="px-3 py-2.5 font-bold">Burst</th>
+                  <th class="px-3 py-2.5 font-bold">Priority</th>
+                  <th class="px-3 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
+                ${rowsHtml}
+              </tbody>
+            </table>
           </div>
-        ` : ''}
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse min-w-[480px]">
-            <thead>
-              <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                <th class="px-3 py-2.5 font-bold">Process</th>
-                <th class="px-3 py-2.5 font-bold">Arrival</th>
-                <th class="px-3 py-2.5 font-bold">Burst</th>
-                <th class="px-3 py-2.5 font-bold">Priority</th>
-                <th class="px-3 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-mono text-xs">
-              ${rowsHtml}
-            </tbody>
-          </table>
         </div>
       </section>
     `;
@@ -981,10 +994,18 @@ function compareSetupView() {
           <span class="font-bold text-slate-800 dark:text-slate-200">${state.comparisonAlgos.length} algorithms</span>
           <span> in comparison · edits here never change Step 1</span>
         </div>
-        <button onclick="app.resetAllComparisonInputs()" class="btn-action w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
-          ${ICONS.refresh}
-          <span>Reset all to Step 1 values</span>
-        </button>
+        <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <button onclick="app.expandAllComparison()" class="btn-action w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 flex items-center justify-center gap-1">
+            <span>Expand all</span>
+          </button>
+          <button onclick="app.collapseAllComparison()" class="btn-action w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1">
+            <span>Collapse all</span>
+          </button>
+          <button onclick="app.resetAllComparisonInputs()" class="btn-action w-full sm:w-auto px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center gap-1.5">
+            ${ICONS.refresh}
+            <span>Reset all to Step 1 values</span>
+          </button>
+        </div>
       </div>
 
       <div class="space-y-4 mb-6">
@@ -1640,9 +1661,46 @@ window.app = {
     renderApp();
   },
 
+  toggleComparisonCollapse(algo) {
+    if (!state.comparisonCollapsed) state.comparisonCollapsed = {};
+    const collapsed = !!state.comparisonCollapsed[algo];
+    state.comparisonCollapsed[algo] = !collapsed;
+    const body = document.getElementById(`comp-body-${algo}`);
+    const chev = document.getElementById(`comp-chevron-${algo}`);
+    const btn = document.getElementById(`comp-toggle-${algo}`);
+    if (body) body.classList.toggle('hidden', !collapsed);
+    if (chev) chev.classList.toggle('rotate-90', collapsed);
+    if (btn) {
+      btn.setAttribute('aria-expanded', String(collapsed));
+      btn.title = `${collapsed ? 'Collapse' : 'Expand'} ${algo} inputs`;
+    }
+  },
+
+  setAllComparisonCollapsed(collapse) {
+    if (!state.comparisonCollapsed) state.comparisonCollapsed = {};
+    state.comparisonAlgos.forEach((algo) => {
+      state.comparisonCollapsed[algo] = collapse;
+      const body = document.getElementById(`comp-body-${algo}`);
+      const chev = document.getElementById(`comp-chevron-${algo}`);
+      const btn = document.getElementById(`comp-toggle-${algo}`);
+      if (body) body.classList.toggle('hidden', collapse);
+      if (chev) chev.classList.toggle('rotate-90', !collapse);
+      if (btn) btn.setAttribute('aria-expanded', String(!collapse));
+    });
+  },
+
+  expandAllComparison() {
+    app.setAllComparisonCollapsed(false);
+  },
+
+  collapseAllComparison() {
+    app.setAllComparisonCollapsed(true);
+  },
+
   resetAllComparisonInputs() {
     state.comparisonInputs = {};
     state.comparisonErrors = {};
+    state.comparisonCollapsed = {};
     ensureComparisonInputs();
     state.comparisonAlgos.forEach((algo) => {
       state.comparisonInputs[algo] = {
@@ -1664,7 +1722,10 @@ window.app = {
         algoErrs.push('Round Robin quantum (q) must be 1 or greater.');
       }
       errors[algo] = algoErrs;
-      if (algoErrs.length) hasError = true;
+      if (algoErrs.length) {
+        hasError = true;
+        if (state.comparisonCollapsed) state.comparisonCollapsed[algo] = false;
+      }
     });
     state.comparisonErrors = errors;
     if (hasError) {
@@ -1807,6 +1868,7 @@ window.app = {
     state.comparisonQuantums = { rr: 2 };
     state.comparisonInputs = {};
     state.comparisonErrors = {};
+    state.comparisonCollapsed = {};
     state.validationErrors = [];
     state.playback.currentTime = 0;
     app.goTo('configure');
